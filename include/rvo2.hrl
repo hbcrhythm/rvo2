@@ -66,6 +66,8 @@
 
 -record(rvo2_kd_tree, {
 		obstacleTree
+		,agents = []
+		,agentTree = []
 	}).
 
 -record(rvo2_agent_tree_node, {

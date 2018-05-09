@@ -5,6 +5,17 @@
 
 -export([buildObstacleTree/2]).
 
+buildAgentTree(Agents, KdTree = #rvo2_kd_tree{agents = Agents_}) ->
+	case length(Agents_) == 0 orelse length(Agents_) != length(Agents) of
+		true ->
+			% KdTree#{agents = Agents},
+			buildAgentTreeRecursive(KdTree);
+		false ->
+			KdTree
+	end.
+
+buildAgentTreeRecursive(KdTree) ->
+	
 
 buildObstacleTree(KdTree, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
  	ObstacleTree = buildObstacleTreeRecursive(Obstacles),

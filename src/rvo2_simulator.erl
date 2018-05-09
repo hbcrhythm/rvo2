@@ -5,7 +5,7 @@
 
 -define(DEFAULT_NUM_WORKER, 4).
 
--export([setTimeStep/2, setAgentDefaults/8, processObstacles/1, addAgent/2, doStep/1]).
+-export([setTimeStep/2, setAgentDefaults/8, processObstacles/1, addAgent/2, doStep/1, getNumAgents/1]).
 
 init() ->
 	Rvo2Simulator = #rvo2_simulator{},
@@ -72,7 +72,7 @@ onAddAgent(Rvo2Simulator = #rvo2_simulator{agents = Agents, agentNo2indexDict = 
 	Rvo2Simulator#rvo2_simulator{agentNo2indexDict = AgentNo2indexDict2, index2agentNoDict = Index2agentNoDict2}.
 
 doStep(Rvo2Simulator) ->
-	UpdateDeleteAgent2 = #rvo2_simulator{workers = Workers} = updateDeleteAgent(Rvo2Simulator),
+	Rvo2Simulator2 = #rvo2_simulator{workers = Workers} = updateDeleteAgent(Rvo2Simulator),
 	
 	case Workers of
 		[] ->
@@ -113,3 +113,6 @@ onDelAgent(Rvo2Simulator = #rvo2_simulator{agents = Agents}) ->
 	{AgentNo2indexDict2, Index2agentNoDict2} = lists:foldl(F, {[], []}, lists:seq(1, Len)),
 
 	Rvo2Simulator#rvo2_simulator{agentNo2indexDict = AgentNo2indexDict2, index2agentNoDict = Index2agentNoDict2}.
+
+getNumAgents(#rvo2_simulator{agents = Agents}) ->
+	length(Agents).
