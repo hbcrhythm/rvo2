@@ -3,10 +3,19 @@
 
 -include("rvo2.hrl").
 
--export([computeNeighbors/2, insertObstacleNeighbor/3]).
+-export([computeNeighbors/2, insertObstacleNeighbor/3, insertAgentNeighbor/3]).
 
 computeNeighbors(RvoSimulator = #rvo2_simulator{kdTree = KdTree}, Rvo2Agent = #rvo2_agent{timeHorizonObst = TimeHorizonObst, maxSpeed = MaxSpeed, radius = Radius}) ->
 	RangeSq = rvo2_match:sqr(TimeHorizonObst * MaxSpeed + Radius),
+	Rvo2Agent2 = #rvo2_agent{maxNeighbors = MaxNeighbors, neighborDist = NeighborDist} = rvo2_kd_tree:computeObstacleNeighbors(Rvo2Agent, RangeSq, KdTree),
+	case MaxNeighbors > 0 of
+		true ->
+			RangeSq2 = rvo2_match:sqr(NeighborDist),
+
+		false ->
+
+	end.
+
 
 insertObstacleNeighbor(Rvo2Obstacle  = #rvo2_obstacle{next = NextObstacle}, RangeSq, Rvo2Agent = #rvo2_agent{position = Position, obstacleNeighbors = ObstacleNeighbors}) ->
 	DistSq = rvo2_match:distSqPointLineSegment(Rvo2Obstacle#rvo2_obstacle.point, NextObstacle#rvo2_obstacle.point, Position),
@@ -23,6 +32,37 @@ insertObstacleNeighbor(Rvo2Obstacle  = #rvo2_obstacle{next = NextObstacle}, Rang
 		false ->
 			Rvo2Agent
 	end.
+
+
+
+insertAgentNeighbor(Agent2 = #rvo2_agent{position = Position2}, RangeSq, Agent = #rvo2_agent{position = Position, agentNeighbors = AgentNeighbors, maxNeighbors = MaxNeighbors}) ->
+	DistSq = rvo2_match:absSq(Position - Position2),
+	case DistSq < RangeSq of
+		true ->
+			AgentNeighbors2 = case length(AgentNeighbors) < MaxNeighbors of
+				true ->
+					[{DistSq, Agent2} | AgentNeighbors];
+				false ->
+					AgentNeighbors
+			end,
+
+			AgentNeighbors3 = lists:keysort(1 , AgentNeighbors2),
+
+
+			Agent2 = Agent#rvo2_agent{agentNeighbors = AgentNeighbors3},
+			case length(AgentNeighbors3) == MaxNeighbors of
+				true ->
+					{Key, _} = lists:last(AgentNeighbors3),	
+					{Key, Agent2};
+				fasle ->
+					{RangeSq, Agent2}
+			end;
+		false ->
+			{RangeSq, Agent2}
+	end.
+
+
+
 
 computeNewVelocity(TimeStep, Rvo2Agent = #rvo2_agent{agentNeighbors = AgentNeighbors, orcaLines = _OrcaLines, timeHorizon = TimeHorizon, timeHorizonObst = TimeHorizonObst, obstacleNeighbors = ObstacleNeighbors, position = Position, radius = Radius, velocity = Velocity, maxSpeed = MaxSpeed, prefVelocity = PrefVelocity, newVelocity = NewVelocity}) ->
 	InvTimeHorizonObst = 1.0 / TimeHorizonObst,
