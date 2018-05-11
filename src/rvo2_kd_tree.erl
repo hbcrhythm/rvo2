@@ -3,7 +3,7 @@
 
 -include("rvo2.hrl").
 
--export([buildObstacleTree/2, computeObstacleNeighbors/3]).
+-export([buildObstacleTree/2, computeObstacleNeighbors/3, computeAgentNeighbors/3, queryVisibility/4]).
 
 -define(MAX_LEAF_SIZE, 10).
 
@@ -239,21 +239,107 @@ queryObstacleTreeRecursive(Rvo2Agent = #rvo2_agent{position = Position}, RangeSq
 			Rvo2Agent
 	end.
 
+%% @doc computeAgentNeighbors(Agent, RangeSq, KdTree) -> {RangeSq2, Agent2}.
 computeAgentNeighbors(Agent, RangeSq, KdTree) ->
-	queryAgentTreeRecursive(Agent, RangeSq, KdTree).
+	queryAgentTreeRecursive(1, Agent, RangeSq, KdTree).
 
 queryAgentTreeRecursive(Node, Agent, RangeSq, KdTree = #rvo2_kd_tree{agentTree = AgentTree}) ->
-	AgentTreeNode = lists:nth(Node, AgentTree),
+	AgentTreeNode = #rvo2_agent_tree_node{left = Left, right = Right} = lists:nth(Node, AgentTree),
 	case AgentTreeNode#rvo2_agent_tree_node.end - AgentTreeNode#rvo2_agent_tree_node.begin =< ?MAX_LEAF_SIZE of
 		true ->
-			F = fun F(Curr, End, RangeSq2, Agent2) ->
+			F = fun F(End, End, RangeSq2, Agent2) ->
+						{RangeSq2, Agent2};
+					F(Curr, End, RangeSq2, Agent2) ->
 						Agent3 = lists:nth(Curr, AgentTree),
 						{RangeSq3, Agent4} = rvo2_agent:insertAgentNeighbor(Agent3, RangeSq2, Agent2),
 						F(Curr2 + 1, End, RangeSq3, Agent4);
 			end,
 
-			F( AgentTreeNode#rvo2_agent_tree_node.begin,  AgentTreeNode#rvo2_agent_tree_node.end, RangeSq, Agent)
-
+			{RangeSq2, Agent2} = F(AgentTreeNode#rvo2_agent_tree_node.begin,  AgentTreeNode#rvo2_agent_tree_node.end, RangeSq, Agent);
 		false ->
+			LeftAgentTreeNode = lists:nth(Left, AgentTree),
+			RightAgentTreeNode = lists:nth(Right, AgentTree),
 
+			DistSqLeft = rvo2_match:sqr( max(0.0, LeftAgentTreeNode#rvo2_agent_tree_node.minX - Agent#rvo2_agent.position#rvo2_vector2.x)) + 
+						 rvo2_match:sqr( max(0.0, Agent#rvo2_agent.position#rvo2_vector2.x - LeftAgentTreeNode#rvo2_agent_tree_node.maxX)) + 
+						 rvo2_match:sqr( max(0.0, LeftAgentTreeNode#rvo2_agent_tree_node.minY - Agent#rvo2_agent.position#rvo2_vector2.y)) + 
+						 rvo2_match:sqr( max(0.0, Agent#rvo2_agent.position#rvo2_vector2.y - LeftAgentTreeNode#rvo2_agent_tree_node.maxY)),
+
+			DistSqRight= rvo2_match:sqr( max(0.0, RightAgentTreeNode#rvo2_agent_tree_node.minX - Agent#rvo2_agent.position#rvo2_vector2.x)) + 
+						 rvo2_match:sqr( max(0.0, Agent#rvo2_agent.position#rvo2_vector2.x - RightAgentTreeNode#rvo2_agent_tree_node.maxX)) + 
+						 rvo2_match:sqr( max(0.0, RightAgentTreeNode#rvo2_agent_tree_node.minY - Agent#rvo2_agent.position#rvo2_vector2.y)) + 
+						 rvo2_match:sqr( max(0.0, Agent#rvo2_agent.position#rvo2_vector2.y - RightAgentTreeNode#rvo2_agent_tree_node.maxY)),
+
+			case DistSqLeft < DistSqRight of
+				true ->
+					case DistSqLeft < RangeSq of
+						true ->
+							{RangeSq2, Agent2} = queryAgentTreeRecursive(Left, Agent, RangeSq, KdTree),
+							case DistSqRight < RangeSq2 of
+								true ->
+									queryAgentTreeRecursive(Right, Agent2, RangeSq2, KdTree);
+								false ->
+									{RangeSq2, Agent2}
+							end;
+						false ->
+							{RangeSq, KdTree}
+					end;
+				false ->
+					case DistSqRight < RangeSq of
+						true ->
+							{RangeSq2, Agent2} = queryAgentTreeRecursive(Right, Agent, RangeSq, KdTree),
+							case DistSqLeft < RangeSq2 of
+								true ->
+									queryAgentTreeRecursive(Left, Agent2, RangeSq2, KdTree)
+								false ->
+									{RangeSq2, Agent2}
+							end;
+						false ->
+							{RangeSq, KdTree}
+					end
+			end
 	end.
+
+queryVisibility(Q1, Q2, Radius, #rvo2_kd_tree{obstacleTree = ObstacleTree}) ->
+	queryVisibilityRecursive(Q1, Q2, Radius, ObstacleTree).
+
+queryVisibilityRecursive(_, _, _, undefined) ->	true;
+queryVisibilityRecursive(Q1, Q2, Radius, #rvo2_obstacle_tree_node{obstacle = Obstacle1 = #rvo2_obstacle{next = Obstacle2}, left = Left, right = Right}) ->
+	Q1LeftOfI = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Q1),
+	Q2LeftOfI = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Q2),
+
+	InvLengthI = 1.0 / rvo2_match:absSq(rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point)),
+
+	case Q1LeftOfI >= 0.0 andalso Q2LeftOfI >= 0.0 of
+		true ->
+			queryVisibilityRecursive(Q1, Q2, Radius, Left) andalso 
+			rvo2_match:sqr(Q1LeftOfI) * InvLengthI >= rvo2_match:sqr(Radius) andalso rvo2_match:sqr(Q2LeftOfI) * InvLengthI >= rvo2_match:sqr(Radius) orelse
+			queryVisibilityRecursive(Q1, Q2, Radius, Right);
+		false ->
+			case Q1LeftOfI =< 0.0 andalso Q2LeftOfI =< 0.0 of
+				true ->
+					queryVisibilityRecursive(Q1, Q2, Radius, Right) andalso 
+					rvo2_match:sqr(Q1LeftOfI) * InvLengthI >= rvo2_match:sqr(Radius) andalso rvo2_match:sqr(Q2LeftOfI) * InvLengthI >= rvo2_match:sqr(Radius) orelse
+					queryVisibilityRecursive(Q1, Q2, Radius, Left);
+				false ->
+					case Q1LeftOfI >= 0.0 andalso Q2LeftOfI =< 0.0 of
+						true ->
+							queryVisibilityRecursive(Q1, Q2, Radius, Left) andalso 
+							queryVisibilityRecursive(Q1, Q2, Radius, Right);
+						false ->
+							Point1LeftOfQ = rvo2_match:leftOf(Q1, Q2, Obstacle1#rvo2_obstacle.point),
+							Point2LeftOfQ = rvo2_match:leftOf(Q1, Q2, Obstacle2#rvo2_obstacle.point),
+							InvLengthQ = 1.0 / rvo2_match:absSq(rvo2_vector2:subtract(Q2, Q1))
+							
+							Point1LeftOfQ * Point2LeftOfQ >= 0.0 andalso 
+							rvo2_match:sqr(Point1LeftOfQ) * InvLengthQ > rvo2_match:sqr(Radius) andalso
+							rvo2_match:sqr(Point2LeftOfQ) * InvLengthQ > rvo2_match:sqr(Radius) andalso
+							queryVisibilityRecursive(Q1, Q2, Radius, Left) andalso 
+							queryVisibilityRecursive(Q1, Q2, Radius, Right);
+					end
+			end
+	end.
+
+
+	
+% queryAgentTreeRecursive(Node, Agent, RangeSq, Position)

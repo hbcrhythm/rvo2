@@ -3,19 +3,24 @@
 
 -include("rvo2.hrl").
 
--export([computeNeighbors/2, insertObstacleNeighbor/3, insertAgentNeighbor/3]).
+-export([computeNeighbors/2, insertObstacleNeighbor/3, insertAgentNeighbor/3, computeNewVelocity/2]).
 
-computeNeighbors(RvoSimulator = #rvo2_simulator{kdTree = KdTree}, Rvo2Agent = #rvo2_agent{timeHorizonObst = TimeHorizonObst, maxSpeed = MaxSpeed, radius = Radius}) ->
+computeNeighbors(RvoSimulator = #rvo2_simulator{kdTree = KdTree}, Agent = #rvo2_agent{timeHorizonObst = TimeHorizonObst, maxSpeed = MaxSpeed, radius = Radius}) ->
 	RangeSq = rvo2_match:sqr(TimeHorizonObst * MaxSpeed + Radius),
-	Rvo2Agent2 = #rvo2_agent{maxNeighbors = MaxNeighbors, neighborDist = NeighborDist} = rvo2_kd_tree:computeObstacleNeighbors(Rvo2Agent, RangeSq, KdTree),
+	Agent2 = #rvo2_agent{maxNeighbors = MaxNeighbors, neighborDist = NeighborDist} = rvo2_kd_tree:computeObstacleNeighbors(Agent, RangeSq, KdTree),
 	case MaxNeighbors > 0 of
 		true ->
 			RangeSq2 = rvo2_match:sqr(NeighborDist),
-
+			{_RangeSq3, Agent3} = rvo2_kd_tree:computeAgentNeighbors(Agent2, RangeSq2, KdTree);
+			Agent3;
 		false ->
-
+			Agent2
 	end.
 
+update(RvoSimulator = #rvo2_simulator{timeStep = TimeStep}, Agent = #rvo2_agent{newVelocity = NewVelocity, position = Position}) ->
+	Velocity2 = rvo2_vector2:multiply(NewVelocity, TimeStep),
+	Position2 = rvo2_vector2:add(Velocity2, Position2),
+	Agent#rvo2_agent{velocity = Velocity2, position = Position2}.
 
 insertObstacleNeighbor(Rvo2Obstacle  = #rvo2_obstacle{next = NextObstacle}, RangeSq, Rvo2Agent = #rvo2_agent{position = Position, obstacleNeighbors = ObstacleNeighbors}) ->
 	DistSq = rvo2_match:distSqPointLineSegment(Rvo2Obstacle#rvo2_obstacle.point, NextObstacle#rvo2_obstacle.point, Position),
@@ -398,7 +403,7 @@ linearProgram2(Lines, Radius, OptVelocity, DirectionOpt, Result) ->
 		false ->
 			{length(Lines), Result2};
 		_ ->
-			{Tag, Result2}
+			{Count, Result2}
 	end.
 
 do_linearProgram2([], _, _, _, _, Result) -> {false, Result}.
@@ -416,3 +421,45 @@ do_linearProgram2([H | T], Lines, Radius, OptVelocity, DirectionOpt, Result) ->
 		false ->
 			do_linearProgram2(T, Lines, Radius, OptVelocity, DirectionOpt, Result)
 	end.
+
+linearProgram3(Lines, NumObstLines, BeginLine, Radius, Result) ->
+	F = fun(I, Distance) ->
+		LineI = #rvo2_line{direction = DirectionI, point = PointI} = lists:nth(I, Lines),
+		case rvo2_match:det(DirectionI, rvo2_vector2:subtract(PointI, Result)) > Distance of
+			true ->
+				ProjLines = lists:sublist(Lines, 1, NumObstLines),
+
+				FF = fun(J, AddProjLines) ->
+					LineJ = #rvo2_line{direction = DirectionJ, point = PointJ} = lists:nth(J, Lines),
+					Determinant = rvo2_match:det(DirectionI, DirectionJ),
+
+					case rvo2_match:fabs(Determinant) =< ?RVO_EPSILON of
+						true ->
+							case rvo2_vector2:multiply(DirectionI, DirectionJ) > 0.0 of
+								true ->
+									AddProjLines;	
+								false ->
+									Line2 = #rvo2_line{point = rvo2_vector2:multiply(0.5, rvo2_vector2:add(PointI, PointJ))},
+									Line3 = Line2#rvo2_line{direction = rvo2_match:normalize( rvo2_vector2:subtract(DirectionJ, DirectionI) ) },
+									[Line3 | AddProjLines]
+							end;
+						false ->
+							Line2 = #rvo2_line{point = rvo2_vector2:add(PointI, rvo2_vector2:multiply(rvo2_match:det( DirectionJ, rvo2_vector2:subtract(PointI, PointJ)) / Determinant), DirectionI)},
+							Line3 = Line2#rvo2_line{direction = rvo2_match:normalize( rvo2_vector2:subtract(DirectionJ, DirectionI) ) },
+							[Line3 | AddProjLines]
+					end
+				end,
+
+				AddProjLines = lists:foldl(FF, [], lists:seq(NumObstLines, I)),
+				ProjLines2 = ProjLines ++ lists:reverse(AddProjLines),
+				case linearProgram2(ProjLines2, Radius, rvo2_vector2:init(DirectionI#rvo2_vector2.y, DirectionI#rvo2_vector2.x), true, Result) of
+					{Count, Result2} when Count < length(ProjLines2) ->
+						rvo2_match:det(DirectionI, rvo2_vector2:subtract( PointI, Result2))
+					_ ->
+						rvo2_match:det(DirectionI, rvo2_vector2:subtract( PointI, Result))
+				end;
+			false ->
+				Distance
+		end
+	end,
+	lists:foldl(F, [0], lists:seq(BeginLine, length(Lines)) ).

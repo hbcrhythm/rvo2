@@ -2,7 +2,11 @@
 -define(RVO_EPSILON, 0.00001).
 -define(MAX_VALUE, 	4294967295).
 
--define(RVO2_IF(A, B, C), case A of true -> B; false -> C end).
+-define(RVO2_IF(A, B, C), 
+	case A of 
+		true -> B; 
+		false -> C 
+	end).
 
 -record(rvo2_vector, {
 		x
@@ -24,8 +28,6 @@
 	}).
 
 -record(rvo2_simulator, {
-		end
-		,start
 		,timeStep
 		,defaultAgent
 
@@ -52,6 +54,7 @@
 		,position
 		,prefVelocity
 		,velocity
+		,newVelocity
 		,id
 		,maxNeighbors
 		,maxSpeed
@@ -60,7 +63,6 @@
 		,timeHorizon
 		,timeHorizonObst
 		,needDelete = false
-		,newVelocity
 
 	}).
 

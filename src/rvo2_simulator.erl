@@ -71,15 +71,44 @@ onAddAgent(Rvo2Simulator = #rvo2_simulator{agents = Agents, agentNo2indexDict = 
 
 	Rvo2Simulator#rvo2_simulator{agentNo2indexDict = AgentNo2indexDict2, index2agentNoDict = Index2agentNoDict2}.
 
-doStep(Rvo2Simulator) ->
-	Rvo2Simulator2 = #rvo2_simulator{workers = Workers} = updateDeleteAgent(Rvo2Simulator),
+doStep(Simulator) ->
+	Simulator2 = #rvo2_simulator{workers = Workers, numWorkers = NumWorkers, workerAgentCount = WorkerAgentCount, kdTree = KdTree, agents = Agents, globalTime = GlobalTime, timeStep = TimeStep} = updateDeleteAgent(Simulator),
 	
-	case Workers of
-		[] ->
-			
-		_ ->
+	Length = getNumAgents(Simulator2),
 
+	Workers2 = case Workers of
+		[] ->
+			[rvo2_worker:init( trunk((Index - 1) * Length / NumWorkers) , trunk(Index * Length / NumWorkers )) || Index <- lists:seq(NumWorkers)]
+		_ ->
+			Workers
 	end,
+
+	Workers3 = case WorkerAgentCount != Length of
+		true ->
+			F = fun(Index) ->
+				CurrWorkers = lists:nth(Index, Workers2),
+				rvo2_worker:config(trunk((Index - 1) * Length / NumWorkers) , trunk(Index * Length / NumWorkers ), CurrWorkers)
+			end,
+			[F(Index) || Index <- lists:seq(NumWorkers)];
+		false ->
+			Workers2
+	end,
+
+	KdTree2 = rvo2_kd_tree:buildAgentTree(Agents, KdTree),
+
+	F = fun(Worker, Simulator3) ->
+		Simulator4 = rvo2_worker:step(Simulator3, Worker),
+		Simulator4
+	end,
+	Simulator5 = lists:foldl(F, Simulator2, Workers3),
+
+	F = fun(Worker, Simulator3) ->
+		Simulator4 = rvo2_worker:update(Simulator3, Worker),
+		Simulator4
+	end,
+	Simulator6 = lists:foldl(F, Simulator5, Workers3),
+
+	Simulator6#rvo2_simulator{globalTime = GlobalTime + TimeStep}.
 
 
 updateDeleteAgent(Rvo2Simulator = #rvo2_simulator{agents = Agents}) ->
