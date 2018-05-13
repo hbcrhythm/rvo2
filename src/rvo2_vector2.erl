@@ -13,7 +13,7 @@ dot(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
 	#rvo2_vector{x = AX * BX, y = AY * BY}.
 
 multiply(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
-	AX * BX + AY * BY.
+	AX * BX + AY * BY;
 multiply(Scalar, Vector2) when is_integer(Scalar) ->
 	multiply(Vector2, Scalar);
 multiply(#rvo2_vector{x = X, y = Y}, Scalar) ->

@@ -14,8 +14,8 @@
 	}).
 
 -record(rvo2_obstacle, {
-		next
-		,previous
+		next_id
+		,previous_id
 		,direction
 		,point
 		,id
@@ -27,16 +27,24 @@
 		,point
 	}).
 
+-record(rvo2_kd_tree, {
+		obstacleTree
+		,obstacles = []
+		,agents = []
+		,agentTree = []
+	}).
+
+
 -record(rvo2_simulator, {
-		,timeStep
-		,defaultAgent
+		defaultAgent
 
 		,s_totalID = 0
 		
-		,obstacles = []
 		,kdTree = #rvo2_kd_tree{}
 
 		,agents = []
+		,obstacles = []
+
 		,agentNo2indexDict = dict:new()
 		,index2agentNoDict = dict:new()
 		,globalTime = 0.0
@@ -66,15 +74,10 @@
 
 	}).
 
--record(rvo2_kd_tree, {
-		obstacleTree
-		,agents = []
-		,agentTree = []
-	}).
 
 -record(rvo2_agent_tree_node, {
-		begin
-		,end
+		begin_
+		,end_
 		,left
 		,right
 		,maxX
@@ -95,7 +98,6 @@
 	}).
 
 -record(rvo2_worker, {
-		doneEvent
-		,end
-		,start
+		start_
+		,end_
 	}).

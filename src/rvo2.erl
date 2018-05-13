@@ -3,6 +3,8 @@
 %% API exports
 -export([test/0]).
 
+-include("rvo2.hrl").
+
 %%====================================================================
 %% API functions
 %%====================================================================
@@ -24,7 +26,7 @@ test() ->
 	Rvo2Simulator7.
 
 createAgent(Rvo2Simulator) ->
-	{Sid, Rvo2Simulator2} = rvo2_simulator:addAgent(rvo2_vector2:init(3, 3)),
+	{Sid, Rvo2Simulator2} = rvo2_simulator:addAgent(rvo2_vector2:init(3, 3), Rvo2Simulator),
 	case Sid >= 0 of
 		true ->
 			ok;
