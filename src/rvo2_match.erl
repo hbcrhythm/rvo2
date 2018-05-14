@@ -19,7 +19,7 @@ det(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
 	AX * BY - AY * BX.
 
 distSqPointLineSegment(Vector1, Vector2, Vector3) ->
-	R = rvo2_vector2:divide( (rvo2_vector2:subtract(Vector3, Vector1) * rvo2_vector2:subtract(Vector2, Vector1)), absSq( rvo2_vector2:subtract(Vector2, Vector1))),
+	R = rvo2_vector2:divide(rvo2_vector2:multiply(rvo2_vector2:subtract(Vector3, Vector1) , rvo2_vector2:subtract(Vector2, Vector1)), absSq(rvo2_vector2:subtract(Vector2, Vector1)) ),
 
 	if
 		R < 0.0 ->

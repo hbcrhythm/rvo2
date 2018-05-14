@@ -6,15 +6,18 @@
 -export([computeNeighbors/2, insertObstacleNeighbor/4, insertAgentNeighbor/3, computeNewVelocity/3, update/2]).
 
 computeNeighbors(#rvo2_simulator{kdTree = KdTree}, Agent = #rvo2_agent{timeHorizonObst = TimeHorizonObst, maxSpeed = MaxSpeed, radius = Radius}) ->
+
 	RangeSq = rvo2_match:sqr(TimeHorizonObst * MaxSpeed + Radius),
-	Agent2 = #rvo2_agent{maxNeighbors = MaxNeighbors, neighborDist = NeighborDist} = rvo2_kd_tree:computeObstacleNeighbors(Agent, RangeSq, KdTree),
+	Agent2 = #rvo2_agent{maxNeighbors = MaxNeighbors, neighborDist = NeighborDist} = rvo2_kd_tree:computeObstacleNeighbors(Agent#rvo2_agent{obstacleNeighbors = []}, RangeSq, KdTree),
+	Agent3 = Agent2#rvo2_agent{agentNeighbors = []},
+
 	case MaxNeighbors > 0 of
 		true ->
 			RangeSq2 = rvo2_match:sqr(NeighborDist),
-			{_RangeSq3, Agent3} = rvo2_kd_tree:computeAgentNeighbors(Agent2, RangeSq2, KdTree),
-			Agent3;
+			{_RangeSq3, Agent4} = rvo2_kd_tree:computeAgentNeighbors(Agent3, RangeSq2, KdTree),
+			Agent4;
 		false ->
-			Agent2
+			Agent3
 	end.
 
 update(#rvo2_simulator{timeStep = TimeStep}, Agent = #rvo2_agent{newVelocity = NewVelocity, position = Position}) ->
@@ -22,37 +25,34 @@ update(#rvo2_simulator{timeStep = TimeStep}, Agent = #rvo2_agent{newVelocity = N
 	Position2 = rvo2_vector2:add(Velocity2, Position),
 	Agent#rvo2_agent{velocity = Velocity2, position = Position2}.
 
-insertObstacleNeighbor(Obstacle, NextObstacle, RangeSq, Rvo2Agent = #rvo2_agent{position = Position, obstacleNeighbors = ObstacleNeighbors}) ->
+%% @doc Inserts a static obstacle neighbor into the set of neighbors of this agent
+insertObstacleNeighbor(Obstacle, NextObstacle, RangeSq, Agent = #rvo2_agent{position = Position, obstacleNeighbors = ObstacleNeighbors}) ->
 	DistSq = rvo2_match:distSqPointLineSegment(Obstacle#rvo2_obstacle.point, NextObstacle#rvo2_obstacle.point, Position),
 
 	case DistSq < RangeSq of
 		true ->
 			ObstacleNeighbors2 = [{DistSq, Obstacle} | ObstacleNeighbors],
 
-			F = fun({A, _}, {B, _}) ->
-				A > B
-			end,	
-			ObstacleNeighbors3 = lists:sort(F, ObstacleNeighbors2),
-			Rvo2Agent#rvo2_agent{obstacleNeighbors = ObstacleNeighbors3};
+			ObstacleNeighbors3 = lists:keysort(1, ObstacleNeighbors2),
+			
+			Agent#rvo2_agent{obstacleNeighbors = ObstacleNeighbors3};
 		false ->
-			Rvo2Agent
+			Agent
 	end.
 
-
-
-insertAgentNeighbor(Agent2 = #rvo2_agent{position = Position2}, RangeSq, Agent = #rvo2_agent{position = Position, agentNeighbors = AgentNeighbors, maxNeighbors = MaxNeighbors}) ->
-	DistSq = rvo2_match:absSq(Position - Position2),
+%% @doc Inserts an agent neighbor into the set of neighbors of this agent
+insertAgentNeighbor(InsertAgent = #rvo2_agent{position = Position2}, RangeSq, Agent = #rvo2_agent{position = Position, agentNeighbors = AgentNeighbors, maxNeighbors = MaxNeighbors}) ->
+	DistSq = rvo2_match:absSq(rvo2_vector2:subtract(Position - Position2)),
 	case DistSq < RangeSq of
 		true ->
 			AgentNeighbors2 = case length(AgentNeighbors) < MaxNeighbors of
 				true ->
-					[{DistSq, Agent2} | AgentNeighbors];
+					[{DistSq, InsertAgent} | AgentNeighbors];
 				false ->
 					AgentNeighbors
 			end,
 
 			AgentNeighbors3 = lists:keysort(1 , AgentNeighbors2),
-
 
 			Agent2 = Agent#rvo2_agent{agentNeighbors = AgentNeighbors3},
 			case length(AgentNeighbors3) == MaxNeighbors of
@@ -63,17 +63,17 @@ insertAgentNeighbor(Agent2 = #rvo2_agent{position = Position2}, RangeSq, Agent =
 					{RangeSq, Agent2}
 			end;
 		false ->
-			{RangeSq, Agent2}
+			{RangeSq, Agent}
 	end.
 
 
-
-
-computeNewVelocity(TimeStep, Obstacles, Rvo2Agent = #rvo2_agent{agentNeighbors = AgentNeighbors, orcaLines = _OrcaLines, timeHorizon = TimeHorizon, timeHorizonObst = TimeHorizonObst, obstacleNeighbors = ObstacleNeighbors, position = Position, radius = Radius, velocity = Velocity, maxSpeed = MaxSpeed, prefVelocity = PrefVelocity, newVelocity = NewVelocity}) ->
+computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = AgentNeighbors, orcaLines = _OrcaLines, timeHorizon = TimeHorizon, timeHorizonObst = TimeHorizonObst, obstacleNeighbors = ObstacleNeighbors, position = Position, radius = Radius, velocity = Velocity, maxSpeed = MaxSpeed, prefVelocity = PrefVelocity, newVelocity = NewVelocity}) ->
+	
 	InvTimeHorizonObst = 1.0 / TimeHorizonObst,
 	
 	OrcaLines = [],
 
+	%% Create obstacle ORCA lines.
 	F = fun(Obstacle1 = #rvo2_obstacle{next_id = NextId}, Acc) ->
 	
 		Obstacle2 = lists:keyfind(NextId, #rvo2_obstacle.id, Obstacles),
@@ -81,7 +81,7 @@ computeNewVelocity(TimeStep, Obstacles, Rvo2Agent = #rvo2_agent{agentNeighbors =
 		RelativePosition1 = rvo2_vector2:subtract(Obstacle1#rvo2_obstacle.point, Position),
 		RelativePosition2 = rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point, Position),
 
-		AlreadyCovered = alreadyCovered(Acc, InvTimeHorizonObst, RelativePosition1, RelativePosition2, Rvo2Agent),
+		AlreadyCovered = alreadyCovered(Acc, InvTimeHorizonObst, RelativePosition1, RelativePosition2, Agent),
 
 		case AlreadyCovered of
 			true ->
@@ -93,12 +93,13 @@ computeNewVelocity(TimeStep, Obstacles, Rvo2Agent = #rvo2_agent{agentNeighbors =
 				DistSq2 = rvo2_match:absSq(RelativePosition2),
 				RadiusSq= rvo2_match:srq(Radius),
 
-				ObstacleVector = Obstacle2#rvo2_obstacle.point - Obstacle1#rvo2_obstacle.point,
+				ObstacleVector = rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point),
 
-				S = (-RelativePosition1 * ObstacleVector) / rvo2_match:absSq(ObstacleVector),
-				DistSqLine = rvo2_match:absSq(rvo2_vector2:subtract(-RelativePosition1, rvo2_vector2:multiply(S, ObstacleVector))),
+				S = rvo2_vector2:multiply(rvo2_vector2:negative(RelativePosition1) * ObstacleVector) / rvo2_match:absSq(ObstacleVector),
+				DistSqLine = rvo2_match:absSq(rvo2_vector2:subtract(rvo2_vector2:negative(RelativePosition1), rvo2_vector2:multiply(S, ObstacleVector))),
 
 				if
+					%% Collision with left vertex. Ignore if non-convex.
 					S < 0.0 andalso DistSqLine =< RadiusSq  ->
 						case Obstacle1#rvo2_obstacle.convex of
 							true ->
@@ -107,6 +108,7 @@ computeNewVelocity(TimeStep, Obstacles, Rvo2Agent = #rvo2_agent{agentNeighbors =
 							false ->
 								Acc
 						end;
+					%% Collision with right vertex. Ignore if non-convex or if it will be taken care of by neighboring obstacle.
 					S > 1.0 andalso DistSq2 =< RadiusSq ->
 						case Obstacle1#rvo2_obstacle.convex andalso rvo2_match:det(RelativePosition2, Obstacle2#rvo2_obstacle.direction) >= 0.0 of
 							true ->
@@ -115,9 +117,12 @@ computeNewVelocity(TimeStep, Obstacles, Rvo2Agent = #rvo2_agent{agentNeighbors =
 							false ->
 								Acc
 						end;
+					%% Collision with obstacle segment.
 					S >= 0.0 andalso S < 1.0 andalso DistSqLine =< RadiusSq ->
-						Rvo2Line = #rvo2_line{point = rvo2_vector2:init(0.0, 0.0), direction = -Obstacle1#rvo2_obstacle.direction},
+						Rvo2Line = #rvo2_line{point = rvo2_vector2:init(0.0, 0.0), direction = rvo2_vector2:negative(Obstacle1#rvo2_obstacle.direction) },
 						[Rvo2Line | Acc];
+
+					%%No collision. Compute legs. When obliquely viewed, both legs can come from a single vertex. Legs extend cut-off line when non-convex vertex.
 					true ->
 						{LeftLegDirection3, RightLegDirection3, NewObstacle1, NewObstacle2} = if
 							S < 0.0 andalso DistSqLine =< RadiusSq ->
@@ -304,19 +309,17 @@ computeNewVelocity(TimeStep, Obstacles, Rvo2Agent = #rvo2_agent{agentNeighbors =
 			Result
 	end.
 
-
-
-
-alreadyCovered([ OrcaLine | T], InvTimeHorizonObst, RelativePosition1, RelativePosition2, Rvo2Agent = #rvo2_agent{radius = Radius}) ->
+alreadyCovered([], _, _, _, _) -> false;
+alreadyCovered([OrcaLine | T], InvTimeHorizonObst, RelativePosition1, RelativePosition2, Agent = #rvo2_agent{radius = Radius}) ->
 	case
-		rvo2_match:det( rvo2_vector2:subtract( rvo2_vector2:multiply(InvTimeHorizonObst, RelativePosition1), OrcaLine#rvo2_line.point), OrcaLine#rvo2_line.direction) - InvTimeHorizonObst * Radius >= -?RVO_EPSILON 
+		rvo2_match:det(rvo2_vector2:subtract(rvo2_vector2:multiply(InvTimeHorizonObst, RelativePosition1), OrcaLine#rvo2_line.point), OrcaLine#rvo2_line.direction) - InvTimeHorizonObst * Radius >= -?RVO_EPSILON 
 	andalso 
-		rvo2_match:det( rvo2_vector2:subtract( rvo2_vector2:multiply(InvTimeHorizonObst, RelativePosition2), OrcaLine#rvo2_line.point), OrcaLine#rvo2_line.direction) - InvTimeHorizonObst * Radius >= -?RVO_EPSILON
+		rvo2_match:det(rvo2_vector2:subtract(rvo2_vector2:multiply(InvTimeHorizonObst, RelativePosition2), OrcaLine#rvo2_line.point), OrcaLine#rvo2_line.direction) - InvTimeHorizonObst * Radius >= -?RVO_EPSILON
 	of
 		true ->
 			true;
 		false ->
-			alreadyCovered(T, InvTimeHorizonObst, RelativePosition1, RelativePosition2, Rvo2Agent)
+			alreadyCovered(T, InvTimeHorizonObst, RelativePosition1, RelativePosition2, Agent)
 	end.
 
 linearProgram1(Lines, LineNo, Radius, OptVelocity, DirectionOpt, Result) ->

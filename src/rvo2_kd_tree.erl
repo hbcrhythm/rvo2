@@ -10,14 +10,13 @@
 buildAgentTree(Agents, KdTree = #rvo2_kd_tree{agents = Agents_}) ->
 	case length(Agents_) == 0 orelse length(Agents_) =/= length(Agents) of
 		true ->
-			% KdTree#{agents = Agents},
-			buildAgentTreeRecursive(1, length(Agents_), KdTree#rvo2_kd_tree{agents = Agents});
+			buildAgentTreeRecursive(1, length(Agents), KdTree#rvo2_kd_tree{agents = Agents});
 		false ->
 			KdTree
 	end.
 
 buildAgentTreeRecursive(Begin, End, KdTree) ->
-	buildAgentTreeRecursive(Begin, End, 1, KdTree).
+	buildAgentTreeRecursive(Begin, End, Begin, KdTree).
 buildAgentTreeRecursive(Begin, End, Curr, KdTree = #rvo2_kd_tree{agents = Agents, agentTree = AgentTree}) ->
 	Agent = lists:nth(Curr, Agents),
 	AgentTreeNode = #rvo2_agent_tree_node{
@@ -29,8 +28,8 @@ buildAgentTreeRecursive(Begin, End, Curr, KdTree = #rvo2_kd_tree{agents = Agents
 		,maxY 	= Agent#rvo2_agent.position#rvo2_vector.y
 	},
 
-	F = fun F2(FEnd, FEnd, AgentTreeNode2) -> AgentTreeNode2;
-			F2(Curr2, FEnd, AgentTreeNode2 = #rvo2_agent_tree_node{maxX = MaxX, minX = MinX, maxY = MaxY, minY = MinY}) ->
+	F = fun F(Curr2, FEnd, AgentTreeNode2) when Curr2 > FEnd -> AgentTreeNode2;
+			F(Curr2, FEnd, AgentTreeNode2 = #rvo2_agent_tree_node{maxX = MaxX, minX = MinX, maxY = MaxY, minY = MinY}) ->
 				Curr2Agent = lists:nth(Curr2, Agents),
 				AgentTreeNode3 = AgentTreeNode2#rvo2_agent_tree_node{
 					maxX  = max(MaxX, Curr2Agent#rvo2_agent.position#rvo2_vector.x)
@@ -38,38 +37,42 @@ buildAgentTreeRecursive(Begin, End, Curr, KdTree = #rvo2_kd_tree{agents = Agents
 					,maxY = max(MaxY, Curr2Agent#rvo2_agent.position#rvo2_vector.y)
 					,minY = min(MinY, Curr2Agent#rvo2_agent.position#rvo2_vector.y)
 				},
-				F2(Curr2 + 1, FEnd, AgentTreeNode3)
+				F(Curr2 + 1, FEnd, AgentTreeNode3)
 	end,
 	AgentTreeNode2 = F(Begin + 1, End, AgentTreeNode),
 	case End - Begin > ?MAX_LEAF_SIZE of
 		true ->
+			
+			%% No leaf node.
+
 			IsVertical = AgentTreeNode2#rvo2_agent_tree_node.maxX - AgentTreeNode2#rvo2_agent_tree_node.minX > AgentTreeNode2#rvo2_agent_tree_node.maxY - AgentTreeNode2#rvo2_agent_tree_node.minY,
 			SplitValue = 0.5 * ?RVO2_IF(IsVertical, AgentTreeNode2#rvo2_agent_tree_node.maxX + AgentTreeNode2#rvo2_agent_tree_node.minX, AgentTreeNode2#rvo2_agent_tree_node.maxY + AgentTreeNode2#rvo2_agent_tree_node.minY),
 			
-			F2 = fun 	F2(Left, Right, Agents2) when Left >= Right -> 
+			F2 = fun 	F2(Left, Right, Agents2) when Left > Right -> 
 							{Left, Right, Agents2};
 						F2(Left, Right, Agents2) ->
-							F3 = fun F3(Left2, Right2) ->
-									case Left2 < Right2 andalso ?RVO2_IF(IsVertical, (lists:nth(Left2, Agents2))#rvo2_agent.position#rvo2_vector.x, (lists:nth(Left2, Agents2))#rvo2_agent.position#rvo2_vector.y) < SplitValue of
+
+							F3 = fun F3(Left2) ->
+									case Left2 =< Right andalso ?RVO2_IF(IsVertical, (lists:nth(Left2, Agents2))#rvo2_agent.position#rvo2_vector.x, (lists:nth(Left2, Agents2))#rvo2_agent.position#rvo2_vector.y) < SplitValue of
 										true ->
-											F3(Left2 + 1, Right2);
+											F3(Left2 + 1);
 										false ->
 											Left2
 									end
 							end,
 
-							Left2 = F3(Left, Right),
+							Left2 = F3(Left),
 
-							F4 = fun F4(Left3, Right3) ->
-										case Right3 > Left3 andalso ?RVO2_IF(IsVertical, (lists:nth(Right3 - 1, Agents2))#rvo2_agent.position#rvo2_vector.x, (lists:nth(Right3 - 1, Agents2))#rvo2_agent.position#rvo2_vector.y) < SplitValue of
+							F4 = fun F4(Right2) ->
+										case Right2 >= Left2 andalso ?RVO2_IF(IsVertical, (lists:nth(Right2, Agents2))#rvo2_agent.position#rvo2_vector.x, (lists:nth(Right2, Agents2))#rvo2_agent.position#rvo2_vector.y) < SplitValue of
 											true ->
-												F4(Left3, Right3 - 1);
+												F4(Right2 - 1);
 											false ->
-												Right3
+												Right2
 										end
 							end,
 
-							Right2 = F4(Left2, Right),
+							Right2 = F4(Right),
 
 							case Left2 < Right2 of
 								true ->
@@ -94,11 +97,13 @@ buildAgentTreeRecursive(Begin, End, Curr, KdTree = #rvo2_kd_tree{agents = Agents
 					{Left3, Right3, LeftSize}
 			end,
 
-
-			AgentTreeNode3 = AgentTreeNode2#rvo2_agent_tree_node{left = Curr + 1 , right = Curr + 2 - LeftSize2},
+			AgentTreeNode3 = AgentTreeNode2#rvo2_agent_tree_node{left = Curr + 1 , right = Curr + 2 * LeftSize2},
 			KdTree2 = KdTree#rvo2_kd_tree{agentTree = [AgentTreeNode3 | AgentTree], agents = Agents2},
+
 		 	KdTree3 = buildAgentTreeRecursive(Begin, Left4, Curr + 1, KdTree2),
-		 	KdTree4 = buildAgentTreeRecursive(Begin, Left4, KdTree3#rvo2_kd_tree{agentTree = [AgentTreeNode3 | AgentTree]}),
+
+		 	KdTree4 = buildAgentTreeRecursive(Left4, End, KdTree3),
+
 		 	KdTree4;
 		false ->
 			KdTree2 = KdTree#rvo2_kd_tree{agentTree = [AgentTreeNode2 | AgentTree]},
@@ -120,13 +125,13 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 
 	Node = #rvo2_obstacle_tree_node{},
 
-	OptimalSplit = 0,
+	% OptimalSplit = 0,
 
 	MinLeft = Len,
 	MinRight = Len,
 	
 	
-	F = fun(ObstacleI1 = #rvo2_obstacle{id = Id}, {MinLeft2, MinRight2, OptimalSplit2}) ->
+	F = fun(ObstacleI1 = #rvo2_obstacle{id = Id}, {MinLeft2, MinRight2, OptimalSplit}) ->
 		LeftSize = 0,
 		RightSize = 0,
 
@@ -139,18 +144,18 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 			true ->
 				{LeftSize2, RightSize2, Id};
 			false ->
-				{MinLeft2, MinRight2, OptimalSplit2}
+				{MinLeft2, MinRight2, OptimalSplit}
 		end
 	end,
 	
-	{_MinLeft2, _MinRight2, _, OptimalSplit2} = lists:foldl(F, {MinLeft, MinRight, 1}, Obstacles),
+	{_MinLeft2, _MinRight2, _, OptimalSplit} = lists:foldl(F, {MinLeft, MinRight, 1}, Obstacles),
 
 	%% Build Split Node
 
-	I = OptimalSplit2,
+	I = OptimalSplit,
 	
 	ObstacleI1 = #rvo2_obstacle{next_id = NextIId, point = ObstacleI1Point} = lists:keyfind(I, #rvo2_obstacle.id, ObstaclesAcc),
-	ObstacleI2 = #rvo2_obstacle{point = ObstacleI2Point} = lists:keyfind(NextIId, #rvo2_obstacle.id, ObstaclesAcc),
+	_ObstacleI2 = #rvo2_obstacle{point = ObstacleI2Point} = lists:keyfind(NextIId, #rvo2_obstacle.id, ObstaclesAcc),
 
 
 	F2 = fun(ObstacleJ1 = #rvo2_obstacle{id = J1Id, next_id = NextJId, direction = J1Direction, point = ObstacleJ1Point}, {LeftObstacles, RightObstacles, AddObstacles, Obstacles2}) ->
@@ -234,51 +239,53 @@ buildObstacleTreeRecursive2([_ObstacleJ1 = #rvo2_obstacle{point = ObstacleJ1Poin
 			buildObstacleTreeRecursive2(T, Obstacles, ObstacleI1, LeftSize2, RightSize2, MinLeft, MinRight)
 	end.
 
-%% @spec computeObstacleNeighbors(Rvo2Agent, RangeSq, KdTree) -> NewRvo2Agent
-computeObstacleNeighbors(Rvo2Agent, RangeSq, KdTree = #rvo2_kd_tree{obstacleTree = ObstacleTree, obstacles = Obstacles}) ->
-	queryObstacleTreeRecursive(Rvo2Agent, RangeSq, Obstacles, ObstacleTree).	
+%% @spec computeObstacleNeighbors(Agent, RangeSq, KdTree) -> NewAgent
+computeObstacleNeighbors(Agent, RangeSq, #rvo2_kd_tree{obstacleTree = ObstacleTree, obstacles = Obstacles}) ->
+	queryObstacleTreeRecursive(Agent, RangeSq, Obstacles, ObstacleTree).	
 
-queryObstacleTreeRecursive(Rvo2Agent, _, _, #rvo2_kd_tree{obstacleTree = undefined}) -> Rvo2Agent;
-queryObstacleTreeRecursive(Rvo2Agent = #rvo2_agent{position = Position}, RangeSq, Obstacles, #rvo2_obstacle_tree_node{obstacle = Obstacle1 = #rvo2_obstacle{next_id = NextId}, left = Left, right = Right}) ->
+queryObstacleTreeRecursive(Agent, _, _, #rvo2_kd_tree{obstacleTree = undefined}) -> Agent;
+queryObstacleTreeRecursive(Agent = #rvo2_agent{position = Position}, RangeSq, Obstacles, #rvo2_obstacle_tree_node{obstacle = Obstacle1 = #rvo2_obstacle{next_id = NextId}, left = Left, right = Right}) ->
 	
 	Obstacle2 = lists:keyfind(NextId, #rvo2_obstacle.id, Obstacles),
 
 	AgentLeftOfLine = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position),
 
-	Rvo2Agent2 = queryObstacleTreeRecursive(Rvo2Agent, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right)),
+	Agent2 = queryObstacleTreeRecursive(Agent, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right)),
 
-	DistSqLine = rvo2_match:sqr(AgentLeftOfLine) / rvo2_match:absSq( rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point - Obstacle1#rvo2_obstacle.point ) ) ,
+	DistSqLine = rvo2_match:sqr(AgentLeftOfLine) / rvo2_match:absSq(rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point - Obstacle1#rvo2_obstacle.point)) ,
 
 	case DistSqLine < RangeSq of
 		true ->
-			Rvo2Agent3 = case AgentLeftOfLine < 0.0 of
+			Agent3 = case AgentLeftOfLine < 0.0 of
 				true ->
-					rvo2_agent:insertObstacleNeighbor(Obstacle1, Obstacle2, RangeSq, Rvo2Agent2);
+					rvo2_agent:insertObstacleNeighbor(Obstacle1, Obstacle2, RangeSq, Agent2);
 				false ->
-					Rvo2Agent2
+					Agent2
 			end,
-			queryObstacleTreeRecursive(Rvo2Agent3, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right));
+			queryObstacleTreeRecursive(Agent3, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right));
 		false ->
-			Rvo2Agent2
+			Agent2
 	end.
 
 %% @doc computeAgentNeighbors(Agent, RangeSq, KdTree) -> {RangeSq2, Agent2}.
 computeAgentNeighbors(Agent, RangeSq, KdTree) ->
 	queryAgentTreeRecursive(1, Agent, RangeSq, KdTree).
 
-queryAgentTreeRecursive(Node, Agent, RangeSq, KdTree = #rvo2_kd_tree{agentTree = AgentTree}) ->
+queryAgentTreeRecursive(Node, Agent, RangeSq, KdTree = #rvo2_kd_tree{agentTree = AgentTree, agents = Agents}) ->
+	
 	AgentTreeNode = #rvo2_agent_tree_node{left = Left, right = Right} = lists:nth(Node, AgentTree),
+
 	case AgentTreeNode#rvo2_agent_tree_node.end_ - AgentTreeNode#rvo2_agent_tree_node.begin_ =< ?MAX_LEAF_SIZE of
 		true ->
-			F = fun F(End, End, RangeSq2, Agent2) ->
+			F = fun F(Curr, End, RangeSq2, Agent2) when Curr >= End ->
 						{RangeSq2, Agent2};
 					F(Curr, End, RangeSq2, Agent2) ->
-						Agent3 = lists:nth(Curr, AgentTree),
+						Agent3 = lists:nth(Curr, Agents),
 						{RangeSq3, Agent4} = rvo2_agent:insertAgentNeighbor(Agent3, RangeSq2, Agent2),
 						F(Curr + 1, End, RangeSq3, Agent4)
 			end,
 
-			{RangeSq2, Agent2} = F(AgentTreeNode#rvo2_agent_tree_node.begin_,  AgentTreeNode#rvo2_agent_tree_node.end_, RangeSq, Agent),
+			{RangeSq2, Agent2} = F(AgentTreeNode#rvo2_agent_tree_node.begin_, AgentTreeNode#rvo2_agent_tree_node.end_, RangeSq, Agent),
 			{RangeSq2, Agent2};
 		false ->
 			LeftAgentTreeNode = lists:nth(Left, AgentTree),

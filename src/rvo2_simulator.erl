@@ -41,73 +41,67 @@ processObstacles(Simulator = #rvo2_simulator{kdTree = KdTree}) ->
 	KdTree2 = rvo2_kd_tree:buildObstacleTree(KdTree, Simulator),
 	Simulator#rvo2_simulator{kdTree = KdTree2}.
 
+
+addObstacle(Vertices, Simulator) when length(Vertices) < 2 ->	Simulator; 
 addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 	LenVertices = length(Vertices),
-	case LenVertices < 2 of
-		true ->
-			Simulator;
-		false ->
+	InitLen 	= length(Obstacles),
 
-			InitLen = length(Obstacles),
+	F = fun F([], Obstacles2) -> Obstacles2;
+			F([VerticeId | T], Obstacles2) ->
+			
+			Id = length(Obstacles2) + 1,
 
-			F = fun F([], Obstacles2) -> Obstacles2;
-					F([VerticeId | T], Obstacles2) ->
-					
-					Id = length(Obstacles2) + 1,
+			Vertice = lists:nth(VerticeId, Vertices),
+			Obstacle	= #rvo2_obstacle{id = Id, point = Vertice},
 
-					Vertice = lists:nth(VerticeId, Vertices),
-					Obstacle	= #rvo2_obstacle{id = Id, point = Vertice},
+			{Obstacle3, Obstacles4} = case VerticeId =/= 1 of
+				true ->
+					Previous = #rvo2_obstacle{id = PreviousId}  = lists:keyfind(length(Obstacles2), #rvo2_obstacle.id, Obstacles2),
 
-					{Obstacle3, Obstacles4} = case VerticeId =/= 1 of
-						true ->
+					Previous2 = Previous#rvo2_obstacle{next_id = Id},
 
-							Previous = #rvo2_obstacle{id = PreviousId}  = lists:keyfind(length(Obstacles2), #rvo2_obstacle.id, Obstacles2),
+					Obstacle2 = Obstacle#rvo2_obstacle{previous_id = PreviousId},
 
-							Previous2 = Previous#rvo2_obstacle{next_id = Id},
-
-							Obstacle2 = Obstacle#rvo2_obstacle{previous_id = PreviousId},
-
-							Obstacles3 = lists:keyreplace(PreviousId, #rvo2_obstacle.id, Obstacle2, Previous2),
-							{Obstacle2, Obstacles3};
-						false ->
-
-							{Obstacle, Obstacles2}
-					end,
-
-					{Obstacle5, Obstacles6} = case VerticeId == LenVertices of
-						true ->
-							ObstacleNoId = ?RVO2_IF(InitLen == 0, 1, InitLen),
-
-							Obstacle4 = Obstacle3#rvo2_obstacle{next_id = ObstacleNoId},
-
-							Next = lists:keyfind(ObstacleNoId, #rvo2_obstacle.id, Obstacles4),
-							
-							Next2 = Next#rvo2_obstacle{previous_id = ObstacleNoId},
-
-							Obstacles5 = lists:keyreplace(ObstacleNoId, #rvo2_obstacle.id, Obstacles4, Next2),
-
-							{Obstacle4, Obstacles5};
-						false ->
-							{Obstacle3, Obstacles4}
-					end,
-
-					Obstacle6 = Obstacle5#rvo2_obstacle{direction = rvo2_match:normalize(rvo2_vector:subtract(?RVO2_IF(VerticeId ==  LenVertices, lists:nth(1, Vertices), lists:nth(VerticeId + 1, Vertices)) - lists:nth(VerticeId, Vertices)))},
-
-					Obstacle7 = case LenVertices of
-						2 ->
-							Obstacle6#rvo2_obstacle{convex = true};
-						_ ->
-							Convex = (rvo2_match:leftOf(?RVO2_IF(VerticeId == 1, lists:nth(LenVertices, Vertices), lists:nth(VerticeId - 1, Vertices)), lists:nth(VerticeId, Vertices), lists:nth( ?RVO2_IF(VerticeId == LenVertices, 1, VerticeId + 1) )) >= 0.0),
-							Obstacle6#rvo2_obstacle{convex = Convex}
-					end,
-					F(T, [Obstacle7 | Obstacles6])
-
+					Obstacles3 = lists:keyreplace(PreviousId, #rvo2_obstacle.id, Obstacle2, Previous2),
+					{Obstacle2, Obstacles3};
+				false ->
+					{Obstacle, Obstacles2}
 			end,
 
-			Obstacles2 = F(lists:seq(1, LenVertices), Obstacles),
-			Obstacles3 = lists:keysort(#rvo2_obstacle.id, Obstacles2),
-			Simulator#rvo2_simulator{obstacles = Obstacles3}
-	end.
+			{Obstacle5, Obstacles6} = case VerticeId == LenVertices of
+				true ->
+					ObstacleNoId = ?RVO2_IF(InitLen == 0, 1, InitLen),
+
+					Obstacle4 = Obstacle3#rvo2_obstacle{next_id = ObstacleNoId},
+
+					Next = lists:keyfind(ObstacleNoId, #rvo2_obstacle.id, Obstacles4),
+					
+					Next2 = Next#rvo2_obstacle{previous_id = ObstacleNoId},
+
+					Obstacles5 = lists:keyreplace(ObstacleNoId, #rvo2_obstacle.id, Obstacles4, Next2),
+
+					{Obstacle4, Obstacles5};
+				false ->
+					{Obstacle3, Obstacles4}
+			end,
+
+			Obstacle6 = Obstacle5#rvo2_obstacle{direction = rvo2_match:normalize(rvo2_vector:subtract(?RVO2_IF(VerticeId ==  LenVertices, lists:nth(1, Vertices), lists:nth(VerticeId + 1, Vertices)) - lists:nth(VerticeId, Vertices)))},
+
+			Obstacle7 = case LenVertices of
+				2 ->
+					Obstacle6#rvo2_obstacle{convex = true};
+				_ ->
+					Convex = (rvo2_match:leftOf(?RVO2_IF(VerticeId == 1, lists:nth(LenVertices, Vertices), lists:nth(VerticeId - 1, Vertices)), lists:nth(VerticeId, Vertices), lists:nth( ?RVO2_IF(VerticeId == LenVertices, 1, VerticeId + 1) )) >= 0.0),
+					Obstacle6#rvo2_obstacle{convex = Convex}
+			end,
+			F(T, [Obstacle7 | Obstacles6])
+
+	end,
+
+	Obstacles2 = F(lists:seq(1, LenVertices), Obstacles),
+	Obstacles3 = lists:keysort(#rvo2_obstacle.id, Obstacles2),
+	Simulator#rvo2_simulator{obstacles = Obstacles3}.
 
 
 addAgent(_Rvo2Vector2, Simulator = #rvo2_simulator{defaultAgent = undefined}) ->
@@ -127,7 +121,7 @@ addAgent(Rvo2Vector2, Simulator = #rvo2_simulator{defaultAgent = DefaultAgent, s
 	
 	STotalId2 = STotalId + 1,
 
-	Agents2 = lists:reverse([Agent | Agents]),
+	Agents2 = [Agent | Agents],
 
 	Simulator2 = Simulator#rvo2_simulator{s_totalID = STotalId2, agents = Agents2},
 

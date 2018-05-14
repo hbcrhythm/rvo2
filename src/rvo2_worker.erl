@@ -11,7 +11,7 @@ init(Start, End) ->
 config(Start, End, Worker) ->
 	Worker#rvo2_worker{start_ = Start, end_ = End}.
 
-step(Simulator = #rvo2_simulator{agents = Agents, timeStep = TimeStep}, #rvo2_worker{ end_ = End}) ->
+step(Simulator = #rvo2_simulator{agents = Agents, timeStep = TimeStep}, #rvo2_worker{end_ = End}) ->
 	Agents2 = lists:sublist(Agents, 1, End),
 
 	F = fun F([Agent = #rvo2_agent{id = Id} | T], Simulator2 = #rvo2_simulator{agents = Agents3, obstacles = Obstacles}) ->
