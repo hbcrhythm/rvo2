@@ -91,16 +91,16 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 
 				DistSq1 = rvo2_match:absSq(RelativePosition1),
 				DistSq2 = rvo2_match:absSq(RelativePosition2),
-				RadiusSq= rvo2_match:srq(Radius),
+				RadiusSq= rvo2_match:sqr(Radius),
 
 				ObstacleVector = rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point),
 
-				S = rvo2_vector2:multiply(rvo2_vector2:negative(RelativePosition1) * ObstacleVector) / rvo2_match:absSq(ObstacleVector),
+				S = rvo2_vector2:multiply(rvo2_vector2:negative(RelativePosition1), ObstacleVector) / rvo2_match:absSq(ObstacleVector),
 				DistSqLine = rvo2_match:absSq(rvo2_vector2:subtract(rvo2_vector2:negative(RelativePosition1), rvo2_vector2:multiply(S, ObstacleVector))),
 
 				if
 					%% Collision with left vertex. Ignore if non-convex.
-					S < 0.0 andalso DistSqLine =< RadiusSq  ->
+					S < 0.0 andalso DistSq1 =< RadiusSq  ->
 						case Obstacle1#rvo2_obstacle.convex of
 							true ->
 								Rvo2Line = #rvo2_line{point = rvo2_vector2:init(0.0, 0.0), direction = rvo2_match:normalize(rvo2_vector2:init(-RelativePosition1#rvo2_vector.y, RelativePosition1#rvo2_vector.x))},
@@ -131,8 +131,8 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 										{undefined, undefined, Obstacle1, Obstacle2};
 									false ->
 										Leg1 = rvo2_match:sqrt(DistSq1 - RadiusSq),
-										LeftLegDirection  = rvo2_vector2:init(RelativePosition1#rvo2_vector.x * Leg1 -  RelativePosition1#rvo2_vector.y * Radius, RelativePosition1#rvo2_vector.x * Radius + RelativePosition1#rvo2_vector.y * Leg1) / DistSq1,
-										RightLegDirection = rvo2_vector2:init(RelativePosition1#rvo2_vector.x * Leg1 +  RelativePosition1#rvo2_vector.y * Radius, -RelativePosition1#rvo2_vector.x * Radius + RelativePosition1#rvo2_vector.y * Leg1) / DistSq1,
+										LeftLegDirection  = rvo2_vector2:divide(rvo2_vector2:init(RelativePosition1#rvo2_vector.x * Leg1 -  RelativePosition1#rvo2_vector.y * Radius, RelativePosition1#rvo2_vector.x * Radius + RelativePosition1#rvo2_vector.y * Leg1), DistSq1),
+										RightLegDirection = rvo2_vector2:divide(rvo2_vector2:init(RelativePosition1#rvo2_vector.x * Leg1 +  RelativePosition1#rvo2_vector.y * Radius, -RelativePosition1#rvo2_vector.x * Radius + RelativePosition1#rvo2_vector.y * Leg1), DistSq1),
 										{LeftLegDirection, RightLegDirection, Obstacle1, Obstacle1}
 								end;
 							S > 1.0 andalso DistSqLine =< RadiusSq ->
@@ -141,22 +141,22 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 										{undefined, undefined, Obstacle1, Obstacle2};
 									false ->
 										Leg2 = rvo2_match:sqrt(DistSq2 - RadiusSq),
-										LeftLegDirection  = rvo2_vector2:init(RelativePosition2#rvo2_vector.x * Leg2 -  RelativePosition2#rvo2_vector.y * Radius, RelativePosition2#rvo2_vector.x * Radius + RelativePosition2#rvo2_vector.y * Leg2) / DistSq2,
-										RightLegDirection = rvo2_vector2:init(RelativePosition2#rvo2_vector.x * Leg2 +  RelativePosition2#rvo2_vector.y * Radius, -RelativePosition2#rvo2_vector.x * Radius + RelativePosition2#rvo2_vector.y * Leg2) / DistSq2,
+										LeftLegDirection  = rvo2_vector2:divide(rvo2_vector2:init(RelativePosition2#rvo2_vector.x * Leg2 -  RelativePosition2#rvo2_vector.y * Radius, RelativePosition2#rvo2_vector.x * Radius + RelativePosition2#rvo2_vector.y * Leg2), DistSq2),
+										RightLegDirection = rvo2_vector2:divide(rvo2_vector2:init(RelativePosition2#rvo2_vector.x * Leg2 +  RelativePosition2#rvo2_vector.y * Radius, -RelativePosition2#rvo2_vector.x * Radius + RelativePosition2#rvo2_vector.y * Leg2), DistSq2),
 										{LeftLegDirection, RightLegDirection, Obstacle2, Obstacle2}
 								end;
 							true ->
 								LeftLegDirection2 = case Obstacle1#rvo2_obstacle.convex of
 									true ->
 										Leg1 = rvo2_match:sqrt(DistSq1 - RadiusSq),
-										rvo2_vector2:init(RelativePosition1#rvo2_vector.x * Leg1 -  RelativePosition1#rvo2_vector.y * Radius, RelativePosition1#rvo2_vector.x * Radius + RelativePosition1#rvo2_vector.y * Leg1) / DistSq1;
+										rvo2_vector2:divide(rvo2_vector2:init(RelativePosition1#rvo2_vector.x * Leg1 -  RelativePosition1#rvo2_vector.y * Radius, RelativePosition1#rvo2_vector.x * Radius + RelativePosition1#rvo2_vector.y * Leg1), DistSq1);
 									false ->
-										-Obstacle1#rvo2_obstacle.direction
+										rvo2_vector2:negative(Obstacle1#rvo2_obstacle.direction)
 								end,
 								RightLegDirection2 = case Obstacle2#rvo2_obstacle.convex of
 									true ->
 										Leg2 = rvo2_match:sqrt(DistSq2 - RadiusSq),
-										rvo2_vector2:init(RelativePosition2#rvo2_vector.x * Leg2 +  RelativePosition2#rvo2_vector.y * Radius, -RelativePosition2#rvo2_vector.x * Radius + RelativePosition2#rvo2_vector.y * Leg2) / DistSq2;
+										rvo2_vector2:divide(rvo2_vector2:init(RelativePosition2#rvo2_vector.x * Leg2 +  RelativePosition2#rvo2_vector.y * Radius, -RelativePosition2#rvo2_vector.x * Radius + RelativePosition2#rvo2_vector.y * Leg2), DistSq2);
 									false ->
 										Obstacle1#rvo2_obstacle.direction
 								end,
@@ -179,6 +179,7 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 				                {IsLeftLegForeign, LeftLegDirection4} = case NewObstacle1#rvo2_obstacle.convex andalso rvo2_match:det(LeftLegDirection3, rvo2_vector2:negative(LeftNeighbor#rvo2_obstacle.direction)) >= 0.0 of
 				                	true ->
 				                		% IsRightLegForeign2 = true,
+				                		%% Left leg points into obstacle.
 				                		{true, rvo2_vector2:negative(LeftNeighbor#rvo2_obstacle.direction)};
 				                	false ->
 				                		{false, LeftLegDirection3}
@@ -186,38 +187,41 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 				                {IsRightLegForeign, RightLegDirection4} = case NewObstacle2#rvo2_obstacle.convex andalso rvo2_match:det(RightLegDirection3, NewObstacle2#rvo2_obstacle.direction) =< 0.0 of
 				                	true ->
 				                		% IsRightLegForeign2 = true,
+				                		%% Right leg points into obstacle.
 				                		{true, NewObstacle2#rvo2_obstacle.direction};
 				                	false ->
 				                		{false, RightLegDirection3}
 				                end,
 
-				                LeftCutOff 	= InvTimeHorizonObst * (rvo2_vector2:subtract( NewObstacle1#rvo2_obstacle.point , Position)),
-				                RightCutOff	= InvTimeHorizonObst * (rvo2_vector2:subtract( NewObstacle2#rvo2_obstacle.point , Position)),
+				                LeftCutOff 	= rvo2_vector2:multiply(InvTimeHorizonObst, (rvo2_vector2:subtract(NewObstacle1#rvo2_obstacle.point , Position))),
+				                RightCutOff	= rvo2_vector2:multiply(InvTimeHorizonObst, (rvo2_vector2:subtract(NewObstacle2#rvo2_obstacle.point , Position))),
 
 				                CutOffVector = rvo2_vector2:subtract(RightCutOff, LeftCutOff),
 
-				                T 		= ?RVO2_IF( NewObstacle1 == NewObstacle2 , 0.5 , ((Velocity - LeftCutOff) * CutOffVector) / rvo2_match:absSq(CutOffVector)),
+				                %% Project current velocity on velocity obstacle.
+				                T 		= ?RVO2_IF( NewObstacle1 == NewObstacle2 , 0.5 , rvo2_vector2:multiply(rvo2_vector2:subtract(Velocity, LeftCutOff), CutOffVector) / rvo2_match:absSq(CutOffVector)),
 								TLeft 	= rvo2_vector2:multiply(rvo2_vector2:subtract(Velocity , LeftCutOff) , LeftLegDirection4),
 								TRight 	= rvo2_vector2:multiply(rvo2_vector2:subtract(Velocity, RightCutOff) , RightLegDirection4),
 
 								if
+									%% Project on left cut-off circle. 
 									(T < 0.0 andalso TLeft < 0.0) orelse (NewObstacle1 == NewObstacle2 andalso TLeft < 0.0 andalso TRight < 0.0) ->
 										UnitW = rvo2_match:normalize( rvo2_vector2:subtract(Velocity, LeftCutOff) ),
-										Rvo2Line = #rvo2_line{direction = rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(rvo2_vector2:multiply(Radius, InvTimeHorizonObst ), UnitW))},
+										Rvo2Line = #rvo2_line{direction = rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(Radius * InvTimeHorizonObst, UnitW))},
 										[Rvo2Line | Acc];
 									(T > 1.0 andalso TRight < 0.0) ->
 										UnitW = rvo2_match:normalize( rvo2_vector2:subtract(Velocity, RightCutOff) ),
-										Rvo2Line = #rvo2_line{direction = rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), point = rvo2_vector2:add(RightCutOff , rvo2_vector2:multiply(rvo2_vector2:multiply(Radius, InvTimeHorizonObst ), UnitW))},
+										Rvo2Line = #rvo2_line{direction = rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), point = rvo2_vector2:add(RightCutOff , rvo2_vector2:multiply(Radius * InvTimeHorizonObst, UnitW))},
 										[Rvo2Line | Acc];
 									true ->
-										DistSqCutoff = ?RVO2_IF( (T < 0.0 orelse T > 1.0 orelse NewObstacle1 == NewObstacle2), ?MAX_VALUE , rvo2_vector2:absSq(rvo2_vector2:subtract(Velocity, (rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(T , CutOffVector))))) ),
-										DistSqLeft = ?RVO2_IF( TLeft < 0.0, ?MAX_VALUE, rvo2_vector2:absSq(rvo2_vector2:subtract(Velocity, (rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(TLeft , LeftLegDirection4))))) ),
-										DistSqRight = ?RVO2_IF( TRight < 0.0, ?MAX_VALUE, rvo2_vector2:absSq(rvo2_vector2:subtract(Velocity, (rvo2_vector2:add(RightCutOff , rvo2_vector2:multiply(TRight , RightLegDirection4))))) ),
+										DistSqCutoff 	= ?RVO2_IF( (T < 0.0 orelse T > 1.0 orelse NewObstacle1 == NewObstacle2), ?MAX_VALUE , rvo2_vector2:absSq(rvo2_vector2:subtract(Velocity, (rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(T , CutOffVector))))) ),
+										DistSqLeft 		= ?RVO2_IF( TLeft < 0.0, ?MAX_VALUE, rvo2_vector2:absSq(rvo2_vector2:subtract(Velocity, (rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(TLeft , LeftLegDirection4))))) ),
+										DistSqRight 	= ?RVO2_IF( TRight < 0.0, ?MAX_VALUE, rvo2_vector2:absSq(rvo2_vector2:subtract(Velocity, (rvo2_vector2:add(RightCutOff , rvo2_vector2:multiply(TRight , RightLegDirection4))))) ),
 
 										case DistSqCutoff =< DistSqLeft andalso DistSqCutoff =< DistSqRight of
 											true ->
 												Direction = rvo2_vector2:negative(NewObstacle1#rvo2_obstacle.direction),
-												Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(rvo2_vector2:multiply(Radius, InvTimeHorizonObst ), rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
+												Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(Radius * InvTimeHorizonObst, rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
 												[Rvo2Line | Acc];
 											false ->
 												case DistSqCutoff =< DistSqRight of
@@ -226,8 +230,8 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 															true ->
 																Acc;
 															false ->
-																Direction = LeftLegDirection3,
-																Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(rvo2_vector2:multiply(Radius, InvTimeHorizonObst ), rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
+																Direction = LeftLegDirection4,
+																Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:multiply(Radius * InvTimeHorizonObst, rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
 																[Rvo2Line | Acc]
 														end;
 													false ->
@@ -235,8 +239,8 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 															true ->
 																Acc;
 															false ->
-																Direction = -RightLegDirection3,
-																Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(RightCutOff , rvo2_vector2:multiply(rvo2_vector2:multiply(Radius, InvTimeHorizonObst ), rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
+																Direction = rvo2_vector2:negative(RightLegDirection4),
+																Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(RightCutOff , rvo2_vector2:multiply(Radius * InvTimeHorizonObst, rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
 																[Rvo2Line | Acc]
 														end
 												end
@@ -266,34 +270,42 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 
 		{Direction2, U} = case DistSq > CombinedRadiusSq of
 			true ->
+				%% No collision. 
 				W = rvo2_vector2:subtract(RelativeVelocity - rvo2_vector2:multiply(InvTimeHorizon2 , RelativePosition)),
 
+				%% Vector from cutoff center to relative velocity.
 				WLengthSq = rvo2_match:absSq(W),
-				DotProduct1 =rvo2_vector2:multiply(W, RelativePosition),
+				DotProduct1 = rvo2_vector2:multiply(W, RelativePosition),
 
 				case DotProduct1 < 0.0 andalso rvo2_match:sqr(DotProduct1) > CombinedRadiusSq * WLengthSq of
 					true ->
+						%% Project on cut-off circle
 						WLength = rvo2_match:sqrt(WLengthSq),
 						UnitW 	= rvo2_vector2:divide(W, WLength),
-						{rvo2_vector2:init(UnitW#rvo2_vector.y, UnitW#rvo2_vector.x), rvo2_vector2:multiply(CombinedRadius * InvTimeHorizon2 - WLength, UnitW)};
+						{rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), rvo2_vector2:multiply(CombinedRadius * InvTimeHorizon2 - WLength, UnitW)};
 					false ->
 						Leg = rvo2_match:sqrt(DistSq - CombinedRadiusSq),
 						Direction = case rvo2_match:det(RelativePosition, W) > 0.0 of
 							true ->
-								rvo2_vector2:init(RelativePosition#rvo2_vector.x * Leg - RelativePosition#rvo2_vector.y * CombinedRadius, RelativePosition#rvo2_vector.x * CombinedRadius + RelativePosition#rvo2_vector.y * Leg);	
+								%% Project on left leg.
+								rvo2_vector2:divide(rvo2_vector2:init(RelativePosition#rvo2_vector.x * Leg - RelativePosition#rvo2_vector.y * CombinedRadius, RelativePosition#rvo2_vector.x * CombinedRadius + RelativePosition#rvo2_vector.y * Leg), DistSq);	
 							false ->
-								rvo2_vector2:negative(rvo2_vector2:init(RelativePosition#rvo2_vector.x * Leg - RelativePosition#rvo2_vector.y * CombinedRadius, -RelativePosition#rvo2_vector.x * CombinedRadius + RelativePosition#rvo2_vector.y * Leg))
+								%% Project on right leg. 
+								rvo2_vector2:divide(rvo2_vector2:negative(rvo2_vector2:init(RelativePosition#rvo2_vector.x * Leg + RelativePosition#rvo2_vector.y * CombinedRadius, -RelativePosition#rvo2_vector.x * CombinedRadius + RelativePosition#rvo2_vector.y * Leg)), DistSq)
 						end,
-						{Direction, rvo2_vector2:subtract( rvo2_vector2:multiply(rvo2_vector2:multiply(RelativeVelocity, Direction) * Direction), RelativeVelocity)}
+						{Direction, rvo2_vector2:subtract(rvo2_vector2:multiply(rvo2_vector2:multiply(RelativeVelocity, Direction), Direction), RelativeVelocity)}
 				end;
 			false ->
 				InvTimeStep = 1.0 / TimeStep,
+				
 				W = rvo2_vector2:subtract(RelativeVelocity - rvo2_vector2:multiply(InvTimeStep , RelativePosition)),
+				
 				WLength = rvo2_match:abs(W),
 				UnitW 	= rvo2_vector2:divide(W, WLength),
+
 				Direction = rvo2_vector2:init(UnitW#rvo2_vector.y , - UnitW#rvo2_vector.x),
 
-				{Direction, rvo2_vector2:multiply( CombinedRadius * InvTimeStep - WLength, UnitW)}
+				{Direction, rvo2_vector2:multiply(CombinedRadius * InvTimeStep - WLength, UnitW)}
 		end,
 		Line2 = Line#rvo2_line{direction = Direction2, point = rvo2_vector2:add(Velocity, rvo2_vector2:multiply(0.5, U)) },
 		[Line2 | Acc]
@@ -400,7 +412,7 @@ linearProgram2(Lines, Radius, OptVelocity, DirectionOpt, Result) ->
 	 	DirectionOpt ->
 	 		rvo2_vector2:multiply(OptVelocity, Radius);
 	 	Bool == true ->
-	 		rvo2_vector2:multiply( rvo2_match:normalize(OptVelocity), Radius);
+	 		rvo2_vector2:multiply(rvo2_match:normalize(OptVelocity), Radius);
 		true ->
 			OptVelocity
 	end,
