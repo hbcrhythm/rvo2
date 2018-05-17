@@ -38,7 +38,7 @@
 -record(rvo2_simulator, {
 		defaultAgent
 
-		,s_totalID = 0
+		,s_totalID = 1
 		
 		,kdTree = #rvo2_kd_tree{}
 

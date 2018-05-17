@@ -5,8 +5,19 @@
 
 -define(DEFAULT_NUM_WORKER, 4).
 
--export([init/0, setTimeStep/2, setAgentDefaults/8, processObstacles/1, addAgent/2, addObstacle/2, doStep/1, getNumAgents/1]).
-
+-export([init/0, setTimeStep/2, setAgentDefaults/8, processObstacles/1, addAgent/2, addObstacle/2, doStep/1]).
+-export([ 
+		getNumAgents/1, 
+		getAgentOrcaLines/2, 
+		getAgentPosition/2, 
+		getAgentPrefVelocity/2,
+		getAgentRadius/2,
+		getAgentTimeHorizon/2,
+		getAgentTimeHorizonObst/2,
+		getAgentVelocity/2,
+		getNumObstacleVertices/1,
+		setAgentPrefVelocity/3
+	]).
 
 init() ->
 	Simulator = #rvo2_simulator{},
@@ -38,10 +49,12 @@ setNumWorkers(NumWorkers, Simulator) ->
 	end.
 
 processObstacles(Simulator = #rvo2_simulator{kdTree = KdTree}) ->
-	KdTree2 = rvo2_kd_tree:buildObstacleTree(KdTree, Simulator),
-	Simulator#rvo2_simulator{kdTree = KdTree2}.
+	{KdTree2, Obstacles2} = rvo2_kd_tree:buildObstacleTree(KdTree, Simulator),
+ 	Simulator#rvo2_simulator{kdTree = KdTree2, obstacles = Obstacles2}.
 
-
+%% @doc Adds a new obstacle to the simulation
+%% @doc To add a "negative" obstacle, e.g. a bounding polygon around the environment, the vertices should be listed in clockwise order.
+%% @doc Vertices 逆时针列表
 addObstacle(Vertices, Simulator) when length(Vertices) < 2 ->	Simulator; 
 addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 	LenVertices = length(Vertices),
@@ -63,7 +76,7 @@ addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 
 					Obstacle2 = Obstacle#rvo2_obstacle{previous_id = PreviousId},
 
-					Obstacles3 = lists:keyreplace(PreviousId, #rvo2_obstacle.id, Obstacle2, Previous2),
+					Obstacles3 = lists:keyreplace(PreviousId, #rvo2_obstacle.id, Obstacles2, Previous2),
 					{Obstacle2, Obstacles3};
 				false ->
 					{Obstacle, Obstacles2}
@@ -71,7 +84,7 @@ addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 
 			{Obstacle5, Obstacles6} = case VerticeId == LenVertices of
 				true ->
-					ObstacleNoId = ?RVO2_IF(InitLen == 0, 1, InitLen),
+					ObstacleNoId = ?RVO2_IF(InitLen == 0, 1, InitLen + 1),
 
 					Obstacle4 = Obstacle3#rvo2_obstacle{next_id = ObstacleNoId},
 
@@ -86,17 +99,16 @@ addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 					{Obstacle3, Obstacles4}
 			end,
 
-			Obstacle6 = Obstacle5#rvo2_obstacle{direction = rvo2_match:normalize(rvo2_vector:subtract(?RVO2_IF(VerticeId ==  LenVertices, lists:nth(1, Vertices), lists:nth(VerticeId + 1, Vertices)) - lists:nth(VerticeId, Vertices)))},
+			Obstacle6 = Obstacle5#rvo2_obstacle{direction = rvo2_match:normalize(rvo2_vector2:subtract(?RVO2_IF(VerticeId == LenVertices, lists:nth(1, Vertices), lists:nth(VerticeId + 1, Vertices)), lists:nth(VerticeId, Vertices)))},
 
 			Obstacle7 = case LenVertices of
 				2 ->
 					Obstacle6#rvo2_obstacle{convex = true};
 				_ ->
-					Convex = (rvo2_match:leftOf(?RVO2_IF(VerticeId == 1, lists:nth(LenVertices, Vertices), lists:nth(VerticeId - 1, Vertices)), lists:nth(VerticeId, Vertices), lists:nth( ?RVO2_IF(VerticeId == LenVertices, 1, VerticeId + 1) )) >= 0.0),
+					Convex = (rvo2_match:leftOf(lists:nth(?RVO2_IF(VerticeId == 1, LenVertices, VerticeId), Vertices), lists:nth(VerticeId, Vertices), lists:nth(?RVO2_IF(VerticeId == LenVertices, 1, VerticeId + 1), Vertices)) >= 0.0),
 					Obstacle6#rvo2_obstacle{convex = Convex}
 			end,
 			F(T, [Obstacle7 | Obstacles6])
-
 	end,
 
 	Obstacles2 = F(lists:seq(1, LenVertices), Obstacles),
@@ -127,14 +139,14 @@ addAgent(Rvo2Vector2, Simulator = #rvo2_simulator{defaultAgent = DefaultAgent, s
 
 	Simulator3 = onAddAgent(Simulator2),
 
-	{STotalId2, Simulator3}.
+	{STotalId, Simulator3}.
 
 onAddAgent(Simulator = #rvo2_simulator{agents = []}) -> Simulator;
 onAddAgent(Simulator = #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict, index2agentNoDict = Index2agentNoDict}) ->
 	Index = length(Agents),
 	AgentNo = (lists:nth(Index, Agents))#rvo2_agent.id,
-	AgentNo2indexDict2 = dict:append(AgentNo, Index, AgentNo2indexDict),
-	Index2agentNoDict2 = dict:append(Index, AgentNo, Index2agentNoDict),
+	AgentNo2indexDict2 = dict:store(AgentNo, Index, AgentNo2indexDict),
+	Index2agentNoDict2 = dict:store(Index, AgentNo, Index2agentNoDict),
 
 	Simulator#rvo2_simulator{agentNo2indexDict = AgentNo2indexDict2, index2agentNoDict = Index2agentNoDict2}.
 
@@ -145,7 +157,7 @@ doStep(Simulator) ->
 
 	Workers2 = case Workers of
 		[] ->
-			[rvo2_worker:init( trunc((Index - 1) * Length / NumWorkers) , trunc(Index * Length / NumWorkers )) || Index <- lists:seq(NumWorkers)];
+			[rvo2_worker:init( trunc((Index - 1) * Length / NumWorkers) , trunc(Index * Length / NumWorkers )) || Index <- lists:seq(1, NumWorkers)];
 		_ ->
 			Workers
 	end,
@@ -156,12 +168,16 @@ doStep(Simulator) ->
 				CurrWorkers = lists:nth(Index, Workers2),
 				rvo2_worker:config(trunc((Index - 1) * Length / NumWorkers) , trunc(Index * Length / NumWorkers ), CurrWorkers)
 			end,
-			[F(Index) || Index <- lists:seq(NumWorkers)];
+			[F(Index) || Index <- lists:seq(1, NumWorkers)];
 		false ->
 			Workers2
 	end,
 
+	lager:info("buildAgentTree start ~n",[]),
+
 	KdTree2 = rvo2_kd_tree:buildAgentTree(Agents, KdTree),
+
+	lager:info("buildAgentTree step finish ~n",[]),
 
 	F2 = fun(Worker, Simulator3) ->
 		Simulator4 = rvo2_worker:step(Simulator3, Worker),
@@ -169,11 +185,15 @@ doStep(Simulator) ->
 	end,
 	Simulator5 = lists:foldl(F2, Simulator2#rvo2_simulator{kdTree = KdTree2}, Workers3),
 
+	lager:info("step finish ~n",[]),
+
 	F3 = fun(Worker, Simulator3) ->
 		Simulator4 = rvo2_worker:update(Simulator3, Worker),
 		Simulator4
 	end,
 	Simulator6 = lists:foldl(F3, Simulator5, Workers3),
+
+	lager:info("step update finish ~n",[]),
 
 	Simulator6#rvo2_simulator{globalTime = GlobalTime + TimeStep}.
 
@@ -202,8 +222,8 @@ onDelAgent(Simulator = #rvo2_simulator{agents = Agents}) ->
 
 	F = fun(Index, {AgentNo2indexDict, Index2agentNoDict}) ->
 			#rvo2_agent{id = AgentNo} = lists:nth(Index, Agents),
-			AgentNo2indexDict2 = dict:append(AgentNo, Index, AgentNo2indexDict),
-			Index2agentNoDict2 = dict:append(Index, AgentNo, Index2agentNoDict),
+			AgentNo2indexDict2 = dict:store(AgentNo, Index, AgentNo2indexDict),
+			Index2agentNoDict2 = dict:store(Index, AgentNo, Index2agentNoDict),
 			{AgentNo2indexDict2, Index2agentNoDict2}
 	end,
 	{AgentNo2indexDict2, Index2agentNoDict2} = lists:foldl(F, {[], []}, lists:seq(1, Len)),
@@ -212,3 +232,49 @@ onDelAgent(Simulator = #rvo2_simulator{agents = Agents}) ->
 
 getNumAgents(#rvo2_simulator{agents = Agents}) ->
 	length(Agents).
+
+getAgentOrcaLines(AgentNo, #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = lists:nth(Index, Agents),
+	Agent#rvo2_agent.orcaLines. 
+
+getAgentPosition(AgentNo, #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = lists:nth(Index, Agents),
+	Agent#rvo2_agent.position.
+
+getAgentPrefVelocity(AgentNo, #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = lists:nth(Index, Agents),
+	Agent#rvo2_agent.prefVelocity.
+
+getAgentRadius(AgentNo, #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = lists:nth(Index, Agents),
+	Agent#rvo2_agent.radius.
+
+getAgentTimeHorizon(AgentNo, #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = lists:nth(Index, Agents),
+	Agent#rvo2_agent.timeHorizon.
+
+getAgentTimeHorizonObst(AgentNo, #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = lists:nth(Index, Agents),
+	Agent#rvo2_agent.timeHorizonObst.
+
+getAgentVelocity(AgentNo, #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = lists:nth(Index, Agents),
+	Agent#rvo2_agent.velocity.
+
+getNumObstacleVertices(#rvo2_simulator{obstacles = Obstacles}) ->
+	length(Obstacles).
+
+setAgentPrefVelocity(AgentNo, PrefVelocity, Simulator = #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	Index = dict:fetch(AgentNo, AgentNo2indexDict),
+	Agent = #rvo2_agent{id = Id} = lists:nth(Index, Agents),
+	Agent2 = Agent#rvo2_agent{prefVelocity = PrefVelocity},
+	Agents2 = lists:keyreplace(Id, #rvo2_agent.id, Agents, Agent2),
+
+	Simulator#rvo2_simulator{agents = Agents2}.

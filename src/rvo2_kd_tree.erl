@@ -110,12 +110,12 @@ buildAgentTreeRecursive(Begin, End, Curr, KdTree = #rvo2_kd_tree{agents = Agents
 			KdTree2
 	end.
 
-%% @spec buildObstacleTree(KdTree, Simulator) -> NewSimulator
+%% @spec buildObstacleTree(KdTree, Simulator) -> {KdTree2, Obstacles2}
 %% @doc  Builds an obstacle k-D tree.
-buildObstacleTree(KdTree, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
+buildObstacleTree(KdTree, #rvo2_simulator{obstacles = Obstacles}) ->
  	{ObstacleTree, Obstacles2} = buildObstacleTreeRecursive(Obstacles, Obstacles),
  	KdTree2 = KdTree#rvo2_kd_tree{obstacleTree = ObstacleTree, obstacles = Obstacles2},
- 	Simulator#rvo2_simulator{kdTree = KdTree2, obstacles = Obstacles2}.
+ 	{KdTree2, Obstacles2}.
 
 %% @spec buildObstacleTreeRecursive(Obstacles) -> {ObstacleTree, Obstacles2}
 %% @doc Recursive method for building an obstacle k-D tree.
@@ -125,11 +125,8 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 
 	Node = #rvo2_obstacle_tree_node{},
 
-	% OptimalSplit = 0,
-
 	MinLeft = Len,
 	MinRight = Len,
-	
 	
 	F = fun(ObstacleI1 = #rvo2_obstacle{id = Id}, {MinLeft2, MinRight2, OptimalSplit}) ->
 		LeftSize = 0,
@@ -148,7 +145,7 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 		end
 	end,
 	
-	{_MinLeft2, _MinRight2, _, OptimalSplit} = lists:foldl(F, {MinLeft, MinRight, 1}, Obstacles),
+	{_MinLeft2, _MinRight2, OptimalSplit} = lists:foldl(F, {MinLeft, MinRight, 1}, Obstacles),
 
 	%% Build Split Node
 
@@ -243,26 +240,30 @@ buildObstacleTreeRecursive2([_ObstacleJ1 = #rvo2_obstacle{point = ObstacleJ1Poin
 computeObstacleNeighbors(Agent, RangeSq, #rvo2_kd_tree{obstacleTree = ObstacleTree, obstacles = Obstacles}) ->
 	queryObstacleTreeRecursive(Agent, RangeSq, Obstacles, ObstacleTree).	
 
+queryObstacleTreeRecursive(Agent, _, _, undefined) -> Agent;
 queryObstacleTreeRecursive(Agent, _, _, #rvo2_kd_tree{obstacleTree = undefined}) -> Agent;
 queryObstacleTreeRecursive(Agent = #rvo2_agent{position = Position}, RangeSq, Obstacles, #rvo2_obstacle_tree_node{obstacle = Obstacle1 = #rvo2_obstacle{next_id = NextId}, left = Left, right = Right}) ->
 	
 	Obstacle2 = lists:keyfind(NextId, #rvo2_obstacle.id, Obstacles),
 
 	AgentLeftOfLine = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position),
+	lager:info("AgentLeftOfLine ~w ~w ~w ~w",[AgentLeftOfLine, Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position ]),
+	lager:info("left ~w right ~w ~n",[Left, Right]),
 
 	Agent2 = queryObstacleTreeRecursive(Agent, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right)),
 
-	DistSqLine = rvo2_match:sqr(AgentLeftOfLine) / rvo2_match:absSq(rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point - Obstacle1#rvo2_obstacle.point)) ,
+	DistSqLine = rvo2_match:sqr(AgentLeftOfLine) / rvo2_match:absSq(rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point)) ,
 
 	case DistSqLine < RangeSq of
 		true ->
 			Agent3 = case AgentLeftOfLine < 0.0 of
 				true ->
+                    %% Try obstacle at this node only if agent is on right side of obstacle (and can see obstacle).
 					rvo2_agent:insertObstacleNeighbor(Obstacle1, Obstacle2, RangeSq, Agent2);
 				false ->
 					Agent2
 			end,
-			queryObstacleTreeRecursive(Agent3, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right));
+			queryObstacleTreeRecursive(Agent3, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Right, Left));
 		false ->
 			Agent2
 	end.

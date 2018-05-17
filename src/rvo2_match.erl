@@ -9,7 +9,7 @@ abs(Vector2) ->
 	sqrt(absSq(Vector2)).
 
 absSq(Vector2) ->
-	rvo2_vector2:dot(Vector2, Vector2).
+	rvo2_vector2:multiply(Vector2, Vector2).
 
 normalize(Vector2) ->
 	rvo2_vector2:divide(Vector2, rvo2_match:abs(Vector2)).

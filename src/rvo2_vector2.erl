@@ -3,18 +3,18 @@
 
 -include("rvo2.hrl").
 
--export([init/2, dot/2, multiply/2, divide/2, add/2, subtract/2, negative/1]).
+-export([init/2, multiply/2, divide/2, add/2, subtract/2, negative/1]).
 
 
 init(X, Y) ->
 	#rvo2_vector{x = X, y = Y}.
 
-dot(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
-	#rvo2_vector{x = AX * BX, y = AY * BY}.
+% dot(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
+% 	#rvo2_vector{x = AX * BX, y = AY * BY}.
 
 multiply(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
 	AX * BX + AY * BY;
-multiply(Scalar, Vector2) when is_integer(Scalar) ->
+multiply(Scalar, Vector2 = #rvo2_vector{}) ->
 	multiply(Vector2, Scalar);
 multiply(#rvo2_vector{x = X, y = Y}, Scalar) ->
 	#rvo2_vector{x = X * Scalar, y = Y * Scalar}.
