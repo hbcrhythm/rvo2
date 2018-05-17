@@ -247,8 +247,8 @@ queryObstacleTreeRecursive(Agent = #rvo2_agent{position = Position}, RangeSq, Ob
 	Obstacle2 = lists:keyfind(NextId, #rvo2_obstacle.id, Obstacles),
 
 	AgentLeftOfLine = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position),
-	lager:info("AgentLeftOfLine ~w ~w ~w ~w",[AgentLeftOfLine, Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position ]),
-	lager:info("left ~w right ~w ~n",[Left, Right]),
+	% lager:info("AgentLeftOfLine ~w ~w ~w ~w",[AgentLeftOfLine, Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position ]),
+	% lager:info("left ~w right ~w AgentLeftOfLine ~w ~n",[Left, Right, AgentLeftOfLine]),
 
 	Agent2 = queryObstacleTreeRecursive(Agent, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right)),
 

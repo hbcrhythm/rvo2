@@ -62,7 +62,7 @@
 		,position
 		,prefVelocity
 		,velocity
-		,newVelocity
+		,newVelocity = 0
 		,id
 		,maxNeighbors
 		,maxSpeed

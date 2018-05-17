@@ -10,7 +10,6 @@ computeNeighbors(#rvo2_simulator{kdTree = KdTree}, Agent = #rvo2_agent{timeHoriz
 	RangeSq = rvo2_match:sqr(TimeHorizonObst * MaxSpeed + Radius),
 	Agent2 = #rvo2_agent{maxNeighbors = MaxNeighbors, neighborDist = NeighborDist} = rvo2_kd_tree:computeObstacleNeighbors(Agent#rvo2_agent{obstacleNeighbors = []}, RangeSq, KdTree),
 	Agent3 = Agent2#rvo2_agent{agentNeighbors = []},
-	lager:info("============= ~n",[]),
 	case MaxNeighbors > 0 of
 		true ->
 			RangeSq2 = rvo2_match:sqr(NeighborDist),
@@ -29,7 +28,6 @@ update(#rvo2_simulator{timeStep = TimeStep}, Agent = #rvo2_agent{newVelocity = N
 %% @doc Inserts a static obstacle neighbor into the set of neighbors of this agent
 insertObstacleNeighbor(Obstacle, NextObstacle, RangeSq, Agent = #rvo2_agent{position = Position, obstacleNeighbors = ObstacleNeighbors}) ->
 	DistSq = rvo2_match:distSqPointLineSegment(Obstacle#rvo2_obstacle.point, NextObstacle#rvo2_obstacle.point, Position),
-
 	case DistSq < RangeSq of
 		true ->
 			ObstacleNeighbors2 = [{DistSq, Obstacle} | ObstacleNeighbors],
@@ -315,8 +313,10 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 		
 	NewVelocity2 = case LineFail < length(OrcaLines3) of
 		true ->
+			lager:info("========= ~n",[]),
 			linearProgram3(OrcaLines3, Len, LineFail, MaxSpeed, Result);
 		false ->
+			lager:info("====ddd===== ~n",[]),
 			Result
 	end,
 	Agent#rvo2_agent{newVelocity = NewVelocity2, orcaLines = OrcaLines3}.

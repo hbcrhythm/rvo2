@@ -83,7 +83,8 @@ createAgent(X, Z, Simulator) ->
 		false ->
 			ok
 	end,
-	Simulator2.
+	Simulator3 = rvo2_simulator:setAgentPrefVelocity(Sid, rvo2_vector2:init(0, 0), Simulator2),
+	Simulator3.
 
 
 createObstacles(Simulator) ->

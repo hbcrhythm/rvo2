@@ -15,13 +15,15 @@ step(Simulator = #rvo2_simulator{agents = Agents, timeStep = TimeStep}, #rvo2_wo
 	Agents2 = lists:sublist(Agents, 1, End),
 
 	F = fun F([Agent = #rvo2_agent{id = Id} | T], Simulator2 = #rvo2_simulator{agents = Agents3, obstacles = Obstacles}) ->
-				lager:info("computeNeighbors ~n",[]),
+				lager:info("computeNeighbors ~w ~n",[Agent]),
 
 			 	Agent2 = rvo2_agent:computeNeighbors(Simulator, Agent),
 
-			 	lager:info("computeNewVelocity ~n",[]),
+			 	lager:info("computeNewVelocity ~w~n",[Agent2]),
 
 			 	Agent3 = rvo2_agent:computeNewVelocity(TimeStep, Obstacles, Agent2),
+
+			 	lager:info("computeNewVelocity Agent3 ~w~n",[Agent3]),
 
 			 	Agents4 = lists:keyreplace(Id, #rvo2_agent.id, Agents3, Agent3),
 
