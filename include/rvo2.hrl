@@ -62,7 +62,7 @@
 		,position
 		,prefVelocity
 		,velocity
-		,newVelocity = 0
+		,newVelocity = #rvo2_vector{x = 0, y = 0}
 		,id
 		,maxNeighbors
 		,maxSpeed

@@ -316,7 +316,7 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 			lager:info("========= ~n",[]),
 			linearProgram3(OrcaLines3, Len, LineFail, MaxSpeed, Result);
 		false ->
-			lager:info("====ddd===== ~n",[]),
+			lager:info("====ddd===== ~w~n",[Result]),
 			Result
 	end,
 	Agent#rvo2_agent{newVelocity = NewVelocity2, orcaLines = OrcaLines3}.
