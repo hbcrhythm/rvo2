@@ -113,6 +113,7 @@ addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 
 	Obstacles2 = F(lists:seq(1, LenVertices), Obstacles),
 	Obstacles3 = lists:keysort(#rvo2_obstacle.id, Obstacles2),
+	lager:info("Obstacles3 ~w~n",[Obstacles3]),
 	Simulator#rvo2_simulator{obstacles = Obstacles3}.
 
 
