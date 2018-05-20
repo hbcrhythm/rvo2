@@ -13,14 +13,22 @@ computeNeighbors(#rvo2_simulator{kdTree = KdTree}, Agent = #rvo2_agent{timeHoriz
 	case MaxNeighbors > 0 of
 		true ->
 			RangeSq2 = rvo2_match:sqr(NeighborDist),
+
+			lager:info("id ~w Agent3#rvo2_agent.agentNeighbors ~w ~n", [Agent#rvo2_agent.id, Agent3#rvo2_agent.agentNeighbors]),
+
 			{_RangeSq3, Agent4} = rvo2_kd_tree:computeAgentNeighbors(Agent3, RangeSq2, KdTree),
+
+			% lager:info("id ~w _RangeSq3 ~w Agent ~w ~n",[Agent#rvo2_agent.id, _RangeSq3,  [{Id,Position} ||  #rvo2_agent{id = Id, position = Position} <- Agent4#rvo2_agent.agentNeighbors ]] ),
+			lager:info("id ~w _RangeSq3 ~w Agent ~w ~n",[Agent#rvo2_agent.id, _RangeSq3,  Agent4#rvo2_agent.agentNeighbors]),
 			Agent4;
 		false ->
 			Agent3
 	end.
 
 update(#rvo2_simulator{timeStep = TimeStep}, Agent = #rvo2_agent{newVelocity = NewVelocity, position = Position}) ->
-
+	
+	lager:info("NewVelocity ~w~n",[NewVelocity]),
+	
 	Position2 = rvo2_vector2:add(Position,  rvo2_vector2:multiply(NewVelocity, TimeStep)),
 
 	Agent#rvo2_agent{velocity = NewVelocity, position = Position2}.
@@ -40,8 +48,9 @@ insertObstacleNeighbor(Obstacle, NextObstacle, RangeSq, Agent = #rvo2_agent{posi
 	end.
 
 %% @doc Inserts an agent neighbor into the set of neighbors of this agent
+insertAgentNeighbor(Agent, RangeSq, Agent) -> {RangeSq, Agent};
 insertAgentNeighbor(InsertAgent = #rvo2_agent{position = Position2}, RangeSq, Agent = #rvo2_agent{position = Position, agentNeighbors = AgentNeighbors, maxNeighbors = MaxNeighbors}) ->
-	DistSq = rvo2_match:absSq(rvo2_vector2:subtract(Position - Position2)),
+	DistSq = rvo2_match:absSq(rvo2_vector2:subtract(Position, Position2)),
 	case DistSq < RangeSq of
 		true ->
 			AgentNeighbors2 = case length(AgentNeighbors) < MaxNeighbors of
@@ -68,12 +77,14 @@ insertAgentNeighbor(InsertAgent = #rvo2_agent{position = Position2}, RangeSq, Ag
 
 computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = AgentNeighbors, orcaLines = _OrcaLines, timeHorizon = TimeHorizon, timeHorizonObst = TimeHorizonObst, obstacleNeighbors = ObstacleNeighbors, position = Position, radius = Radius, velocity = Velocity, maxSpeed = MaxSpeed, prefVelocity = PrefVelocity, newVelocity = NewVelocity}) ->
 	
+	lager:info(" computeNewVelocity id = ~w AgentNeighbors ~w ~n ",[Agent#rvo2_agent.id, AgentNeighbors]), 
+
 	InvTimeHorizonObst = 1.0 / TimeHorizonObst,
 	
 	OrcaLines = [],
 
 	%% Create obstacle ORCA lines.
-	F = fun(Obstacle1 = #rvo2_obstacle{next_id = NextId}, Acc) ->
+	F = fun({_, Obstacle1 = #rvo2_obstacle{next_id = NextId}}, Acc) ->
 	
 		Obstacle2 = lists:keyfind(NextId, #rvo2_obstacle.id, Obstacles),
 
@@ -265,14 +276,18 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 
 		Line = #rvo2_line{},
 
+		lager:info("id ~w DistSq ~w CombinedRadiusSq ~w RelativePosition : ~w Other#rvo2_agent.position ~w position ~w ~n", [Agent#rvo2_agent.id, DistSq, CombinedRadiusSq, RelativePosition, Other#rvo2_agent.position, Position]),
+
 		{Direction2, U} = case DistSq > CombinedRadiusSq of
 			true ->
 				%% No collision. 
-				W = rvo2_vector2:subtract(RelativeVelocity - rvo2_vector2:multiply(InvTimeHorizon2 , RelativePosition)),
+				W = rvo2_vector2:subtract(RelativeVelocity, rvo2_vector2:multiply(InvTimeHorizon2 , RelativePosition)),
 
 				%% Vector from cutoff center to relative velocity.
 				WLengthSq = rvo2_match:absSq(W),
 				DotProduct1 = rvo2_vector2:multiply(W, RelativePosition),
+
+				lager:info("id ~w DotProduct1 ~w rvo2_match:sqr(DotProduct1) ~w CombinedRadiusSq * WLengthSq ~w~n",[Agent#rvo2_agent.id, DotProduct1, rvo2_match:sqr(DotProduct1), CombinedRadiusSq * WLengthSq]),
 
 				case DotProduct1 < 0.0 andalso rvo2_match:sqr(DotProduct1) > CombinedRadiusSq * WLengthSq of
 					true ->
@@ -293,11 +308,18 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 						{Direction, rvo2_vector2:subtract(rvo2_vector2:multiply(rvo2_vector2:multiply(RelativeVelocity, Direction), Direction), RelativeVelocity)}
 				end;
 			false ->
+				%% Collision. Project on cut-off circle of time timeStep.
+
 				InvTimeStep = 1.0 / TimeStep,
 				
-				W = rvo2_vector2:subtract(RelativeVelocity - rvo2_vector2:multiply(InvTimeStep , RelativePosition)),
+				%% Vector from cutoff center to relative velocity.
+
+				W = rvo2_vector2:subtract(RelativeVelocity, rvo2_vector2:multiply(InvTimeStep , RelativePosition)),
 				
 				WLength = rvo2_match:abs(W),
+
+				lager:info(" id ~w  RelativeVelocity ~w InvTimeStep ~w  RelativePosition ~w w ~w WLength ~w~n",[Agent#rvo2_agent.id, RelativeVelocity, InvTimeStep, RelativePosition, W, WLength]),
+				
 				UnitW 	= rvo2_vector2:divide(W, WLength),
 
 				Direction = rvo2_vector2:init(UnitW#rvo2_vector.y , - UnitW#rvo2_vector.x),
@@ -309,8 +331,12 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 	end,
 	OrcaLines3 = lists:foldl(FF, OrcaLines2, AgentNeighbors),
 
+	lager:info("OrcaLines3 ~w MaxSpeed ~w PrefVelocity ~w NewVelocity ~w~n",[OrcaLines3, MaxSpeed, PrefVelocity, NewVelocity]),
+
 	{LineFail, Result} = linearProgram2(OrcaLines3, MaxSpeed, PrefVelocity, false, NewVelocity),
 		
+	lager:info("LineFail ~w, NewVelocity ~w ~n",[LineFail, Result]),
+
 	NewVelocity2 = case LineFail < length(OrcaLines3) of
 		true ->
 			lager:info("========= ~n",[]),
@@ -414,9 +440,10 @@ do_linearProgram1([H | T], LineNo, Lines, TLeft, TRight) ->
 
 
 
-linearProgram2(Lines, Radius, OptVelocity, DirectionOpt, Result) ->
+linearProgram2(Lines, Radius, OptVelocity, DirectionOpt, _Result) ->
 	Bool = rvo2_match:absSq(OptVelocity) > rvo2_match:sqr(Radius),
-	if
+	
+	Result2 = if
 	 	DirectionOpt ->
 	 		rvo2_vector2:multiply(OptVelocity, Radius);
 	 	Bool == true ->
@@ -424,12 +451,12 @@ linearProgram2(Lines, Radius, OptVelocity, DirectionOpt, Result) ->
 		true ->
 			OptVelocity
 	end,
-	{Count, Result2} = do_linearProgram2(lists:seq(1, length(Lines)), Lines, Radius, OptVelocity, DirectionOpt, Result),
+	{Count, Result3} = do_linearProgram2(lists:seq(1, length(Lines)), Lines, Radius, OptVelocity, DirectionOpt, Result2),
 	case Count of
 		false ->
-			{length(Lines), Result2};
+			{length(Lines), Result3};
 		_ ->
-			{Count, Result2}
+			{Count, Result3}
 	end.
 
 %% @spec do_linearProgram2(List, Lines, Radius, OptVelocity, DirectionOpt, Result) -> {false, NewResult} | {I, Result}

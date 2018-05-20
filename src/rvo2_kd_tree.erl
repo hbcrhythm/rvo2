@@ -135,7 +135,9 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 		{LeftSize2, RightSize2} = buildObstacleTreeRecursive(Obstacles, ObstaclesAcc, ObstacleI1, LeftSize, RightSize, MinLeft2, MinRight2),
 
 		FloatPair = rvo2_float_pair:init(max(LeftSize2, RightSize2), min(LeftSize2, RightSize2)),
-		FloatPair2 = rvo2_float_pair:init(max(MinLeft, MinRight), min(MinLeft, MinRight)),
+		FloatPair2 = rvo2_float_pair:init(max(MinLeft2, MinRight2), min(MinLeft2, MinRight2)),
+
+		% lager:info("id  ~w, FloatPair ~w FloatPair2 ~w ~w",[Id, FloatPair, FloatPair2, rvo2_float_pair:lt(FloatPair, FloatPair2)]),
 
 		case rvo2_float_pair:lt(FloatPair, FloatPair2) of
 			true ->
@@ -147,6 +149,7 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 	
 	{_MinLeft2, _MinRight2, OptimalSplit} = lists:foldl(F, {MinLeft, MinRight, 1}, Obstacles),
 
+	% lager:info("_MinLeft2 ~w _MinRight2 ~w OptimalSplit  ~w~n",[_MinLeft2, _MinRight2, OptimalSplit]),
 	%% Build Split Node
 
 	I = OptimalSplit,
@@ -197,9 +200,10 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 
 	Obstacles3 = lists:keysort(#rvo2_obstacle.id, AddObstacles ++ Obstacles2),
 
-	{Node2, Obstacles4} = buildObstacleTreeRecursive(LeftObstacles, Obstacles3),
-	{Node3, Obstacles5}	= buildObstacleTreeRecursive(RightObstacles, Obstacles4),
+	% lager:info("ObstacleI1 id ~p ~p ~n",[ObstacleI1#rvo2_obstacle.id, ObstacleI1#rvo2_obstacle.point]),
 
+	{Node2, Obstacles4} = buildObstacleTreeRecursive(lists:reverse(LeftObstacles), Obstacles3),
+	{Node3, Obstacles5}	= buildObstacleTreeRecursive(lists:reverse(RightObstacles), Obstacles4),
 	{Node#rvo2_obstacle_tree_node{obstacle = ObstacleI1, left = Node2, right = Node3}, Obstacles5}.
 
 
@@ -247,8 +251,8 @@ queryObstacleTreeRecursive(Agent = #rvo2_agent{position = Position}, RangeSq, Ob
 	Obstacle2 = lists:keyfind(NextId, #rvo2_obstacle.id, Obstacles),
 
 	AgentLeftOfLine = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position),
-	% lager:info("AgentLeftOfLine ~w ~w ~w ~w",[AgentLeftOfLine, Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position ]),
-	% lager:info("left ~w right ~w AgentLeftOfLine ~w ~n",[Left, Right, AgentLeftOfLine]),
+	% lager:info("id ~w AgentLeftOfLine ~w ~w ~w ~w ~n", [Obstacle1#rvo2_obstacle.id, AgentLeftOfLine, Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Position ]),
+	% lager:info("node.left_ ~w ~n node.right_ ~w ~n~n~n", [Left, Right]),
 
 	Agent2 = queryObstacleTreeRecursive(Agent, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right)),
 
@@ -278,7 +282,7 @@ queryAgentTreeRecursive(Node, Agent, RangeSq, KdTree = #rvo2_kd_tree{agentTree =
 
 	case AgentTreeNode#rvo2_agent_tree_node.end_ - AgentTreeNode#rvo2_agent_tree_node.begin_ =< ?MAX_LEAF_SIZE of
 		true ->
-			F = fun F(Curr, End, RangeSq2, Agent2) when Curr >= End ->
+			F = fun F(Curr, End, RangeSq2, Agent2) when Curr > End ->
 						{RangeSq2, Agent2};
 					F(Curr, End, RangeSq2, Agent2) ->
 						Agent3 = lists:nth(Curr, Agents),

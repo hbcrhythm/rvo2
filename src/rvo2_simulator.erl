@@ -113,7 +113,7 @@ addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 
 	Obstacles2 = F(lists:seq(1, LenVertices), Obstacles),
 	Obstacles3 = lists:keysort(#rvo2_obstacle.id, Obstacles2),
-	lager:info("Obstacles3 ~w~n",[Obstacles3]),
+	% lager:info("Obstacles3 ~w~n",[ [ {Id_, Point_} || #rvo2_obstacle{id = Id_, point = Point_} <- Obstacles3] ]),
 	Simulator#rvo2_simulator{obstacles = Obstacles3}.
 
 
@@ -134,7 +134,8 @@ addAgent(Rvo2Vector2, Simulator = #rvo2_simulator{defaultAgent = DefaultAgent, s
 	
 	STotalId2 = STotalId + 1,
 
-	Agents2 = [Agent | Agents],
+	Agents2 = lists:reverse([Agent | lists:reverse(Agents)]),
+
 
 	Simulator2 = Simulator#rvo2_simulator{s_totalID = STotalId2, agents = Agents2},
 
@@ -144,10 +145,15 @@ addAgent(Rvo2Vector2, Simulator = #rvo2_simulator{defaultAgent = DefaultAgent, s
 
 onAddAgent(Simulator = #rvo2_simulator{agents = []}) -> Simulator;
 onAddAgent(Simulator = #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict, index2agentNoDict = Index2agentNoDict}) ->
+	
 	Index = length(Agents),
+	
 	AgentNo = (lists:nth(Index, Agents))#rvo2_agent.id,
+
 	AgentNo2indexDict2 = dict:store(AgentNo, Index, AgentNo2indexDict),
 	Index2agentNoDict2 = dict:store(Index, AgentNo, Index2agentNoDict),
+
+	lager:info(" length(Agents ) ~w AgentNo ~w AgentNo2indexDict2 ~w Index2agentNoDict2 ~w",[length(Agents), AgentNo, dict:to_list(AgentNo2indexDict2), dict:to_list(Index2agentNoDict2)]),
 
 	Simulator#rvo2_simulator{agentNo2indexDict = AgentNo2indexDict2, index2agentNoDict = Index2agentNoDict2}.
 
@@ -155,13 +161,15 @@ doStep(Simulator) ->
 	Simulator2 = #rvo2_simulator{workers = Workers, numWorkers = NumWorkers, workerAgentCount = WorkerAgentCount, kdTree = KdTree, agents = Agents, globalTime = GlobalTime, timeStep = TimeStep} = updateDeleteAgent(Simulator),
 	
 	Length = getNumAgents(Simulator2),
+	lager:info("length ~w~n",[Length]),
 
 	Workers2 = case Workers of
 		[] ->
-			[rvo2_worker:init( trunc((Index - 1) * Length / NumWorkers) , trunc(Index * Length / NumWorkers )) || Index <- lists:seq(1, NumWorkers)];
+			[rvo2_worker:init( trunc((Index - 1) * Length / NumWorkers + 1) , trunc(Index * Length / NumWorkers ) + 1) || Index <- lists:seq(1, NumWorkers)];
 		_ ->
 			Workers
 	end,
+	lager:info("Workers2 ~w~n",[Workers2]),
 
 	Workers3 = case WorkerAgentCount =/= Length of
 		true ->
@@ -273,9 +281,15 @@ getNumObstacleVertices(#rvo2_simulator{obstacles = Obstacles}) ->
 	length(Obstacles).
 
 setAgentPrefVelocity(AgentNo, PrefVelocity, Simulator = #rvo2_simulator{agents = Agents, agentNo2indexDict = AgentNo2indexDict}) ->
+	
+	% lager:info("AgentNo2indexDict  ~w~n ", [dict:to_list(AgentNo2indexDict)]),
+
 	Index = dict:fetch(AgentNo, AgentNo2indexDict),
 	Agent = #rvo2_agent{id = Id} = lists:nth(Index, Agents),
+
+	% lager:info(" setAgentPrefVelocity ~w ~n",[PrefVelocity]),
 	Agent2 = Agent#rvo2_agent{prefVelocity = PrefVelocity},
 	Agents2 = lists:keyreplace(Id, #rvo2_agent.id, Agents, Agent2),
+
 
 	Simulator#rvo2_simulator{agents = Agents2}.
