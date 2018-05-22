@@ -8,12 +8,13 @@
 -define(MAX_LEAF_SIZE, 10).
 
 buildAgentTree(Agents, KdTree = #rvo2_kd_tree{agents = Agents_}) ->
-	case length(Agents_) == 0 orelse length(Agents_) =/= length(Agents) of
-		true ->
-			buildAgentTreeRecursive(1, length(Agents), KdTree#rvo2_kd_tree{agents = Agents});
-		false ->
-			KdTree
-	end.
+	buildAgentTreeRecursive(1, length(Agents), KdTree#rvo2_kd_tree{agents = Agents}).
+	% case length(Agents_) == 0 orelse length(Agents_) =/= length(Agents) of
+	% 	true ->
+	% 		buildAgentTreeRecursive(1, length(Agents), KdTree#rvo2_kd_tree{agents = Agents});
+	% 	false ->
+	% 		KdTree
+	% end.
 
 buildAgentTreeRecursive(Begin, End, KdTree) ->
 	buildAgentTreeRecursive(Begin, End, Begin, KdTree).
@@ -172,10 +173,10 @@ buildObstacleTreeRecursive(Obstacles, ObstaclesAcc) ->
 			J1LeftOfI =< ?RVO_EPSILON andalso J2LeftOfI =< ?RVO_EPSILON ->
 				{LeftObstacles, [ObstacleJ1 | RightObstacles], AddObstacles, Obstacles2};
 			true ->
-				T = rvo2_match:det(rvo2_vector2:subtract(ObstacleI2Point, ObstacleI1Point), rvo2_vector2:subtract(ObstacleJ1Point, ObstacleI1Point) ) / 
-					rvo2_match:det(rvo2_vector2:subtract(ObstacleI2Point, ObstacleI1Point), rvo2_vector2:subtract(ObstacleJ1Point, ObstacleJ2Point) ) ,
+				T = rvo2_match:det(rvo2_vector2:sub(ObstacleI2Point, ObstacleI1Point), rvo2_vector2:sub(ObstacleJ1Point, ObstacleI1Point) ) / 
+					rvo2_match:det(rvo2_vector2:sub(ObstacleI2Point, ObstacleI1Point), rvo2_vector2:sub(ObstacleJ1Point, ObstacleJ2Point) ) ,
 				
-				SplitPoint = rvo2_vector2:add(ObstacleJ1Point, rvo2_vector2:multiply(T, rvo2_vector2:subtract(ObstacleJ2Point, ObstacleJ1Point))),
+				SplitPoint = rvo2_vector2:add(ObstacleJ1Point, rvo2_vector2:mult(T, rvo2_vector2:sub(ObstacleJ2Point, ObstacleJ1Point))),
 
 				NewId =  Len + length(AddObstacles),
 				NewObstacle = #rvo2_obstacle{point = SplitPoint, previous_id = J1Id, next_id = J2Id, convex = true, direction = J1Direction, id = NewId},
@@ -256,7 +257,7 @@ queryObstacleTreeRecursive(Agent = #rvo2_agent{position = Position}, RangeSq, Ob
 
 	Agent2 = queryObstacleTreeRecursive(Agent, RangeSq, Obstacles, ?RVO2_IF(AgentLeftOfLine >= 0.0, Left, Right)),
 
-	DistSqLine = rvo2_match:sqr(AgentLeftOfLine) / rvo2_match:absSq(rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point)) ,
+	DistSqLine = rvo2_match:sqr(AgentLeftOfLine) / rvo2_match:absSq(rvo2_vector2:sub(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point)) ,
 
 	case DistSqLine < RangeSq of
 		true ->
@@ -347,7 +348,7 @@ queryVisibilityRecursive(Q1, Q2, Radius, Obstacles, #rvo2_obstacle_tree_node{obs
 	Q1LeftOfI = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Q1),
 	Q2LeftOfI = rvo2_match:leftOf(Obstacle1#rvo2_obstacle.point, Obstacle2#rvo2_obstacle.point, Q2),
 
-	InvLengthI = 1.0 / rvo2_match:absSq(rvo2_vector2:subtract(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point)),
+	InvLengthI = 1.0 / rvo2_match:absSq(rvo2_vector2:sub(Obstacle2#rvo2_obstacle.point, Obstacle1#rvo2_obstacle.point)),
 
 	case Q1LeftOfI >= 0.0 andalso Q2LeftOfI >= 0.0 of
 		true ->
@@ -368,7 +369,7 @@ queryVisibilityRecursive(Q1, Q2, Radius, Obstacles, #rvo2_obstacle_tree_node{obs
 						false ->
 							Point1LeftOfQ = rvo2_match:leftOf(Q1, Q2, Obstacle1#rvo2_obstacle.point),
 							Point2LeftOfQ = rvo2_match:leftOf(Q1, Q2, Obstacle2#rvo2_obstacle.point),
-							InvLengthQ = 1.0 / rvo2_match:absSq(rvo2_vector2:subtract(Q2, Q1)),
+							InvLengthQ = 1.0 / rvo2_match:absSq(rvo2_vector2:sub(Q2, Q1)),
 							
 							Point1LeftOfQ * Point2LeftOfQ >= 0.0 andalso 
 							rvo2_match:sqr(Point1LeftOfQ) * InvLengthQ > rvo2_match:sqr(Radius) andalso

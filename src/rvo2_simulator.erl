@@ -99,7 +99,7 @@ addObstacle(Vertices, Simulator = #rvo2_simulator{obstacles = Obstacles}) ->
 					{Obstacle3, Obstacles4}
 			end,
 
-			Obstacle6 = Obstacle5#rvo2_obstacle{direction = rvo2_match:normalize(rvo2_vector2:subtract(?RVO2_IF(VerticeId == LenVertices, lists:nth(1, Vertices), lists:nth(VerticeId + 1, Vertices)), lists:nth(VerticeId, Vertices)))},
+			Obstacle6 = Obstacle5#rvo2_obstacle{direction = rvo2_match:normalize(rvo2_vector2:sub(?RVO2_IF(VerticeId == LenVertices, lists:nth(1, Vertices), lists:nth(VerticeId + 1, Vertices)), lists:nth(VerticeId, Vertices)))},
 
 			Obstacle7 = case LenVertices of
 				2 ->
@@ -175,7 +175,7 @@ doStep(Simulator) ->
 		true ->
 			F = fun(Index) ->
 				CurrWorkers = lists:nth(Index, Workers2),
-				rvo2_worker:config(trunc((Index - 1) * Length / NumWorkers) , trunc(Index * Length / NumWorkers ), CurrWorkers)
+				rvo2_worker:config(trunc((Index - 1) * Length / NumWorkers + 1) , trunc(Index * Length / NumWorkers + 1), CurrWorkers)
 			end,
 			[F(Index) || Index <- lists:seq(1, NumWorkers)];
 		false ->
@@ -198,6 +198,7 @@ doStep(Simulator) ->
 
 	F3 = fun(Worker, Simulator3) ->
 		Simulator4 = rvo2_worker:update(Simulator3, Worker),
+		% lager:info("update finished ~w",[ [{Id, Position}  || #rvo2_agent{id = Id, position = Position} <- Simulator4#rvo2_simulator.agents] ]),
 		Simulator4
 	end,
 	Simulator6 = lists:foldl(F3, Simulator5, Workers3),

@@ -12,10 +12,11 @@ config(Start, End, Worker) ->
 	Worker#rvo2_worker{start_ = Start, end_ = End}.
 
 step(Simulator = #rvo2_simulator{agents = Agents, timeStep = TimeStep}, #rvo2_worker{start_ = Start, end_ = End}) ->
-	Agents2 = lists:sublist(Agents, Start, End - 1),
+	% lager:info("Agents ~w ~w ~w ~n",[Agents, Start, End]),
+	Agents2 = lists:sublist(Agents, Start, End - Start),
 
 	F = fun F([Agent = #rvo2_agent{id = Id} | T], Simulator2 = #rvo2_simulator{agents = Agents3, obstacles = Obstacles}) ->
-				lager:info("id ~w ================= computeNeighbors ~w ~n",[Id, Agent]),
+				% lager:info("id ~w ================= computeNeighbors ~w ~n",[Id, Agent]),
 
 			 	Agent2 = rvo2_agent:computeNeighbors(Simulator, Agent),
 
@@ -33,14 +34,18 @@ step(Simulator = #rvo2_simulator{agents = Agents, timeStep = TimeStep}, #rvo2_wo
 	end,
 	F(Agents2, Simulator).
 
-update(Simulator = #rvo2_simulator{agents = Agents}, #rvo2_worker{end_ = End}) ->
-	Agents2 = lists:sublist(Agents, 1, End),
+update(Simulator = #rvo2_simulator{agents = Agents}, #rvo2_worker{start_ = Start, end_ = End}) ->
+	
+	Agents2 = lists:sublist(Agents, Start, End - Start),
 
 	F = fun F([Agent = #rvo2_agent{id = Id} | T], Simulator2 = #rvo2_simulator{agents = Agents3}) ->
+		
 			 	Agent2 = rvo2_agent:update(Simulator, Agent),
 
 			 	Agents4 = lists:keyreplace(Id, #rvo2_agent.id, Agents3, Agent2),
-			 		
+			 	
+			 	% lager:info(" update Agent2 ~w ~n ==== ~w~n",[Agent2, Agents4]),
+
 			 	F(T, Simulator2#rvo2_simulator{agents = Agents4});
 			F([], Simulator2) ->
 				Simulator2

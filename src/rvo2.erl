@@ -26,11 +26,16 @@ test() ->
 
 	Simulator5 = createAgent(0, 0, Simulator4),
 	Simulator6 = createAgent(3, 3, Simulator5),
+	Simulator6_1 = createAgent(-3, -3, Simulator6),
+	Simulator6_2 = createAgent(0, -3, Simulator6_1),
+	Simulator7 = createAgent(0, 3, Simulator6_2),
+
+
 
 	% Simulator6 = createAgent(-4.809568, 2.546146, Simulator5),
 	% Simulator7 = createAgent(3.594887, -4.847359, Simulator6),
 	
-	Simulator8 = Simulator6,
+	Simulator8 = Simulator7,
 
 
 	%% 循环处理
@@ -46,7 +51,7 @@ loop(Num, MousePosition, {Angle, Dist}, Simulator = #rvo2_simulator{agents = Age
 	
 	Simulator2 = rvo2_simulator:doStep(Simulator),
 
-	lager:info("loop num ============================= ~w~n",[Num]),
+	lager:info(" ~n~n ================== loop num ================== ~w~n~n",[Num]),
 	F = fun F([#rvo2_agent{id = Id} | T], Simulator3) ->
 			
 				Pos = rvo2_simulator:getAgentPosition(Id, Simulator3),
@@ -55,7 +60,7 @@ loop(Num, MousePosition, {Angle, Dist}, Simulator = #rvo2_simulator{agents = Age
 				lager:info("id ~w pos ~w vel ~w ~n",[Id, Pos, Vel]),
 
 				lager:info("mousePosition ~w agent position ~w~n",[MousePosition, rvo2_simulator:getAgentPosition(Id, Simulator3)]),
-				GoalVector = rvo2_vector2:subtract(MousePosition, rvo2_simulator:getAgentPosition(Id, Simulator3)),
+				GoalVector = rvo2_vector2:sub(MousePosition, rvo2_simulator:getAgentPosition(Id, Simulator3)),
 
 				lager:info("GoalVector ~w~n", [GoalVector]),
 
@@ -70,14 +75,16 @@ loop(Num, MousePosition, {Angle, Dist}, Simulator = #rvo2_simulator{agents = Age
 				
 				% Angle = rand:uniform() * 2.0 * math:pi(),
 				% Dist = rand:uniform() * 0.0001,
-
-				Simulator5 = rvo2_simulator:setAgentPrefVelocity(Id, rvo2_vector2:add(rvo2_simulator:getAgentPrefVelocity(Id, Simulator4), rvo2_vector2:multiply(Dist, rvo2_vector2:init(math:cos(Angle), math:sin(Angle)) )), Simulator4),
+				% lager:info("Simulator4 agent ~w ~n",[Simulator4#rvo2_simulator.agents]),
+				Simulator5 = rvo2_simulator:setAgentPrefVelocity(Id, rvo2_vector2:add(rvo2_simulator:getAgentPrefVelocity(Id, Simulator4), rvo2_vector2:mult(Dist, rvo2_vector2:init(math:cos(Angle), math:sin(Angle)) )), Simulator4),
 				F(T, Simulator5);
 
 			F([], Simulator3) ->
 				Simulator3
 	end,
+	
 	Simulator3 = F(Agents, Simulator2),
+
 	loop(Num - 1, MousePosition, {Angle, Dist}, Simulator3).
 
 createAgent(X, Z, Simulator) ->
