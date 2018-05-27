@@ -3,7 +3,7 @@
 
 -include("rvo2.hrl").
 
--define(DEFAULT_NUM_WORKER, 4).
+-define(DEFAULT_NUM_WORKER, 1).
 
 -export([init/0, setTimeStep/2, setAgentDefaults/8, processObstacles/1, addAgent/2, addObstacle/2, doStep/1]).
 -export([ 
@@ -20,6 +20,8 @@
 	]).
 
 init() ->
+	% EtsAgentName = util:atom(lists:concat(["ets_agent_", SceneId])),
+	% ets:new(EtsAgentName, #rvo2_agent.id, [set, public, named_table, {keypos, Pos}, {write_concurrency, true}]),
 	Simulator = #rvo2_simulator{},
 	Simulator2 = setNumWorkers(0, Simulator),
 	Simulator2.
@@ -153,7 +155,7 @@ onAddAgent(Simulator = #rvo2_simulator{agents = Agents, agentNo2indexDict = Agen
 	AgentNo2indexDict2 = dict:store(AgentNo, Index, AgentNo2indexDict),
 	Index2agentNoDict2 = dict:store(Index, AgentNo, Index2agentNoDict),
 
-	lager:info(" length(Agents ) ~w AgentNo ~w AgentNo2indexDict2 ~w Index2agentNoDict2 ~w",[length(Agents), AgentNo, dict:to_list(AgentNo2indexDict2), dict:to_list(Index2agentNoDict2)]),
+	% lager:info(" length(Agents ) ~w AgentNo ~w AgentNo2indexDict2 ~w Index2agentNoDict2 ~w",[length(Agents), AgentNo, dict:to_list(AgentNo2indexDict2), dict:to_list(Index2agentNoDict2)]),
 
 	Simulator#rvo2_simulator{agentNo2indexDict = AgentNo2indexDict2, index2agentNoDict = Index2agentNoDict2}.
 
@@ -161,7 +163,6 @@ doStep(Simulator) ->
 	Simulator2 = #rvo2_simulator{workers = Workers, numWorkers = NumWorkers, workerAgentCount = WorkerAgentCount, kdTree = KdTree, agents = Agents, globalTime = GlobalTime, timeStep = TimeStep} = updateDeleteAgent(Simulator),
 	
 	Length = getNumAgents(Simulator2),
-	lager:info("length ~w~n",[Length]),
 
 	Workers2 = case Workers of
 		[] ->
@@ -169,7 +170,7 @@ doStep(Simulator) ->
 		_ ->
 			Workers
 	end,
-	lager:info("Workers2 ~w~n",[Workers2]),
+	% lager:info("Workers2 ~w~n",[Workers2]),
 
 	Workers3 = case WorkerAgentCount =/= Length of
 		true ->
@@ -182,28 +183,48 @@ doStep(Simulator) ->
 			Workers2
 	end,
 
-	lager:info("buildAgentTree start ~n",[]),
+	% lager:info("buildAgentTree start ~n",[]),
 
 	KdTree2 = rvo2_kd_tree:buildAgentTree(Agents, KdTree),
 
-	lager:info("buildAgentTree step finish ~n",[]),
+	% lager:info("buildAgentTree step finish ~n",[]),
 
-	F2 = fun(Worker, Simulator3) ->
-		Simulator4 = rvo2_worker:step(Simulator3, Worker),
-		Simulator4
+	Simulator3 = Simulator2#rvo2_simulator{kdTree = KdTree2},
+
+	% StartTime = rvo2:unixtime(),
+
+	% Agents2 = rvo2_mapreduce:map_reduce(fun(Worker) -> rvo2_worker:step(Simulator3, Worker) end, fun(A, B) -> lists:flatten(A, B) end, Workers3, async),
+
+	% lager:info(" ~n ~n ====  step time  ==== ~w ~n  ",[ rvo2:unixtime() - StartTime ]),
+
+	% Simulator5 = Simulator3#rvo2_simulator{agents = Agents2},
+
+	F2 = fun(Worker, AgentsAcc) ->
+		Agents2 = rvo2_worker:step(Simulator3, Worker),
+		Agents2 ++ AgentsAcc
 	end,
-	Simulator5 = lists:foldl(F2, Simulator2#rvo2_simulator{kdTree = KdTree2}, Workers3),
+	Agents2 = lists:foldl(F2, [], Workers3),
+	
+	Simulator5 = Simulator3#rvo2_simulator{agents = Agents2},
 
-	lager:info("step finish ~n",[]),
+	% lager:info("step finish ~n",[]),
 
-	F3 = fun(Worker, Simulator3) ->
-		Simulator4 = rvo2_worker:update(Simulator3, Worker),
-		% lager:info("update finished ~w",[ [{Id, Position}  || #rvo2_agent{id = Id, position = Position} <- Simulator4#rvo2_simulator.agents] ]),
-		Simulator4
+	% StartTime2 = rvo2:unixtime(),
+
+	% Agents3 = rvo2_mapreduce:map_reduce(fun(Worker) -> rvo2_worker:update(Simulator5, Worker) end, fun(A, B) -> lists:flatten(A, B) end, Workers3, async),
+
+	% lager:info(" ~n ~n ====  update time  ==== ~w ~n  ",[ rvo2:unixtime() - StartTime2 ]),
+	% Simulator6 = Simulator5#rvo2_simulator{agents = Agents3},
+
+	F3 = fun(Worker, AgentsAcc) ->
+		Agents3 = rvo2_worker:update(Simulator5, Worker),
+		Agents3 ++ AgentsAcc
 	end,
-	Simulator6 = lists:foldl(F3, Simulator5, Workers3),
+	Agents3 = lists:foldl(F3, [], Workers3),
 
-	lager:info("step update finish ~n",[]),
+	Simulator6 = Simulator5#rvo2_simulator{agents = Agents3},
+
+	% lager:info("step update finish ~n",[]),
 
 	Simulator6#rvo2_simulator{globalTime = GlobalTime + TimeStep}.
 

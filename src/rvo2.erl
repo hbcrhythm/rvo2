@@ -1,7 +1,7 @@
 -module(rvo2).
 
 %% API exports
--export([test/0]).
+-export([test/0, unixtime/0, to_binary/1, term_to_bitstring/1]).
 
 -include("rvo2.hrl").
 
@@ -9,8 +9,15 @@
 %% API functions
 %%====================================================================
 
+%% application:ensure_all_started(lager).
+%% erlang:spawn(fun() -> observer:start() end).
+%% rvo2:test().
+
 test() ->
 	application:ensure_all_started(lager),
+	test(1001).
+
+test(_SceneId) ->
 	Simulator = rvo2_simulator:init(),
 
 	Simulator_1 = createObstacles(Simulator),
@@ -30,8 +37,6 @@ test() ->
 	Simulator6_2 = createAgent(0, -3, Simulator6_1),
 	Simulator7 = createAgent(0, 3, Simulator6_2),
 
-
-
 	% Simulator6 = createAgent(-4.809568, 2.546146, Simulator5),
 	% Simulator7 = createAgent(3.594887, -4.847359, Simulator6),
 	
@@ -39,14 +44,14 @@ test() ->
 
 
 	%% 循环处理
-	Simulator9 = loop(4, rvo2_vector2:init(4.497988,-13.88612), {4.387878, 2.897997E-05}, Simulator8),
+	Simulator9 = loop(0, rvo2_vector2:init(4.497988,-13.88612), {4.387878, 2.897997E-05}, Simulator8),
 
-	lager:info("loop end ~p",[Simulator9]),
+	lager:info("loop end ~n",[]),
 
 	Simulator9.
 
 
-loop(0, _, _, Simulator) -> Simulator;
+loop(45, _, _, Simulator) -> Simulator;
 loop(Num, MousePosition, {Angle, Dist}, Simulator = #rvo2_simulator{agents = Agents}) ->
 	
 	Simulator2 = rvo2_simulator:doStep(Simulator),
@@ -59,10 +64,10 @@ loop(Num, MousePosition, {Angle, Dist}, Simulator = #rvo2_simulator{agents = Age
 
 				lager:info("id ~w pos ~w vel ~w ~n",[Id, Pos, Vel]),
 
-				lager:info("mousePosition ~w agent position ~w~n",[MousePosition, rvo2_simulator:getAgentPosition(Id, Simulator3)]),
+				% lager:info("mousePosition ~w agent position ~w~n",[MousePosition, rvo2_simulator:getAgentPosition(Id, Simulator3)]),
 				GoalVector = rvo2_vector2:sub(MousePosition, rvo2_simulator:getAgentPosition(Id, Simulator3)),
 
-				lager:info("GoalVector ~w~n", [GoalVector]),
+				% lager:info("GoalVector ~w~n", [GoalVector]),
 
 				GoalVector3 = case rvo2_match:absSq(GoalVector) > 1.0 of
 					true ->
@@ -85,7 +90,7 @@ loop(Num, MousePosition, {Angle, Dist}, Simulator = #rvo2_simulator{agents = Age
 	
 	Simulator3 = F(Agents, Simulator2),
 
-	loop(Num - 1, MousePosition, {Angle, Dist}, Simulator3).
+	loop(Num + 1, MousePosition, {Angle, Dist}, Simulator3).
 
 createAgent(X, Z, Simulator) ->
 	{Sid, Simulator2} = rvo2_simulator:addAgent(rvo2_vector2:init(X, Z), Simulator),
@@ -130,6 +135,36 @@ createObstacles4(Simulator) ->
 	MaxZ = -10,
 	Vertices = [rvo2_vector2:init(MaxX, MaxZ), rvo2_vector2:init(MinX, MaxZ), rvo2_vector2:init(MinX, MinZ), rvo2_vector2:init(MaxX, MinZ)],
 	rvo2_simulator:addObstacle(Vertices, Simulator).
+
+%% @spec unixtime() -> int()
+%% @doc 取当前unix时间戳
+unixtime() ->
+    {M, S, _} = os:timestamp(),
+    M * 1000000 + S.
+
+to_binary(Msg) when is_binary(Msg) ->
+    Msg;
+to_binary(Msg) when is_atom(Msg) ->
+    list_to_binary(atom_to_list(Msg));
+to_binary(Msg) when is_list(Msg) ->
+    list_to_binary(Msg);
+to_binary(Msg) when is_integer(Msg) ->
+    list_to_binary(integer_to_list(Msg));
+to_binary(Msg) when is_float(Msg) ->
+    list_to_binary(f2s(Msg));
+to_binary(Msg) when is_tuple(Msg) ->
+    list_to_binary(tuple_to_list(Msg));
+to_binary(_Msg) -> throw(other_value).
+
+term_to_bitstring(Term) ->
+    erlang:list_to_bitstring(io_lib:format("~p", [Term])).
+
+f2s(N) when is_integer(N) ->
+    integer_to_list(N) ++ ".00";
+f2s(N) when is_list(N) ->
+    [A] = io_lib:format("~.2f", [N]),
+    A.
+
 
 %%====================================================================
 %% Internal functions

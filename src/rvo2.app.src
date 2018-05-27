@@ -6,7 +6,9 @@
    [kernel,
     stdlib
    ]},
-  {env,[]},
+  {env,[
+        {num_workers, 4}
+  ]},
   {modules, []},
 
   {maintainers, []},

@@ -7,7 +7,7 @@
 
 -define(MAX_LEAF_SIZE, 10).
 
-buildAgentTree(Agents, KdTree = #rvo2_kd_tree{agents = Agents_}) ->
+buildAgentTree(Agents, KdTree = #rvo2_kd_tree{agents = _Agents_}) ->
 	buildAgentTreeRecursive(1, length(Agents), KdTree#rvo2_kd_tree{agents = Agents}).
 	% case length(Agents_) == 0 orelse length(Agents_) =/= length(Agents) of
 	% 	true ->

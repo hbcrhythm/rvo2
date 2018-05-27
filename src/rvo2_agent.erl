@@ -29,7 +29,7 @@ update(#rvo2_simulator{timeStep = TimeStep}, Agent = #rvo2_agent{newVelocity = N
 	
 	Position2 = rvo2_vector2:add(Position,  rvo2_vector2:mult(NewVelocity, TimeStep)),
 
-	lager:info("rvo2agent update id = ~w NewVelocity ~w, position ~w position2 ~w TimeStep ~w ~n",[Agent#rvo2_agent.id, NewVelocity, Position, Position2, TimeStep]),
+	% lager:info("rvo2agent update id = ~w NewVelocity ~w, position ~w position2 ~w TimeStep ~w ~n",[Agent#rvo2_agent.id, NewVelocity, Position, Position2, TimeStep]),
 
 	Agent#rvo2_agent{velocity = NewVelocity, position = Position2}.
 
@@ -77,7 +77,7 @@ insertAgentNeighbor(InsertAgent = #rvo2_agent{position = Position2}, RangeSq, Ag
 
 computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = AgentNeighbors, orcaLines = _OrcaLines, timeHorizon = TimeHorizon, timeHorizonObst = TimeHorizonObst, obstacleNeighbors = ObstacleNeighbors, position = Position, radius = Radius, velocity = Velocity, maxSpeed = MaxSpeed, prefVelocity = PrefVelocity, newVelocity = NewVelocity}) ->
 	
-	lager:info(" computeNewVelocity id = ~w AgentNeighbors ~w ~n ",[Agent#rvo2_agent.id, AgentNeighbors]), 
+	% lager:info(" computeNewVelocity id = ~w AgentNeighbors ~w ~n ",[Agent#rvo2_agent.id, AgentNeighbors]), 
 
 	InvTimeHorizonObst = 1.0 / TimeHorizonObst,
 	
@@ -114,7 +114,6 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 						case Obstacle1#rvo2_obstacle.convex of
 							true ->
 								Rvo2Line = #rvo2_line{point = rvo2_vector2:init(0.0, 0.0), direction = rvo2_match:normalize(rvo2_vector2:init(-RelativePosition1#rvo2_vector.y, RelativePosition1#rvo2_vector.x))},
-								lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
 								[Rvo2Line | Acc];
 							false ->
 								Acc
@@ -125,8 +124,6 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 							true ->
 								Rvo2Line = #rvo2_line{point = rvo2_vector2:init(0.0, 0.0), direction = rvo2_match:normalize(rvo2_vector2:init(-RelativePosition2#rvo2_vector.y, RelativePosition2#rvo2_vector.x))},
 								
-								lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
-								
 								[Rvo2Line | Acc];
 							false ->
 								Acc
@@ -134,8 +131,6 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 					%% Collision with obstacle segment.
 					S >= 0.0 andalso S < 1.0 andalso DistSqLine =< RadiusSq ->
 						Rvo2Line = #rvo2_line{point = rvo2_vector2:init(0.0, 0.0), direction = rvo2_vector2:negative(Obstacle1#rvo2_obstacle.direction) },
-
-						lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
 
 						[Rvo2Line | Acc];
 
@@ -225,14 +220,10 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 										UnitW = rvo2_match:normalize( rvo2_vector2:sub(Velocity, LeftCutOff) ),
 										Rvo2Line = #rvo2_line{direction = rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:mult(Radius * InvTimeHorizonObst, UnitW))},
 
-										lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
-
 										[Rvo2Line | Acc];
 									(T > 1.0 andalso TRight < 0.0) ->
 										UnitW = rvo2_match:normalize( rvo2_vector2:sub(Velocity, RightCutOff) ),
 										Rvo2Line = #rvo2_line{direction = rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), point = rvo2_vector2:add(RightCutOff , rvo2_vector2:mult(Radius * InvTimeHorizonObst, UnitW))},
-										
-										lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
 										
 										[Rvo2Line | Acc];
 									true ->
@@ -245,8 +236,6 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 												Direction = rvo2_vector2:negative(NewObstacle1#rvo2_obstacle.direction),
 												Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:mult(Radius * InvTimeHorizonObst, rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
 
-												lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
-
 												[Rvo2Line | Acc];
 											false ->
 												case DistSqCutoff =< DistSqRight of
@@ -258,8 +247,6 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 																Direction = LeftLegDirection4,
 																Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(LeftCutOff , rvo2_vector2:mult(Radius * InvTimeHorizonObst, rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
 
-																lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
-
 																[Rvo2Line | Acc]
 														end;
 													false ->
@@ -269,8 +256,6 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 															false ->
 																Direction = rvo2_vector2:negative(RightLegDirection4),
 																Rvo2Line = #rvo2_line{direction = Direction, point = rvo2_vector2:add(RightCutOff , rvo2_vector2:mult(Radius * InvTimeHorizonObst, rvo2_vector2:init(-Direction#rvo2_vector.y, Direction#rvo2_vector.x)))},
-
-																lager:info("Rvo2Line ~w ~n",[Rvo2Line]),
 
 																[Rvo2Line | Acc]
 														end
@@ -297,7 +282,7 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 
 		Line = #rvo2_line{},
 
-		lager:info("id ~w DistSq ~w CombinedRadiusSq ~w RelativePosition : ~w Other#rvo2_agent.position ~w position ~w ~n", [Agent#rvo2_agent.id, DistSq, CombinedRadiusSq, RelativePosition, Other#rvo2_agent.position, Position]),
+		% lager:info("id ~w DistSq ~w CombinedRadiusSq ~w RelativePosition : ~w Other#rvo2_agent.position ~w position ~w ~n", [Agent#rvo2_agent.id, DistSq, CombinedRadiusSq, RelativePosition, Other#rvo2_agent.position, Position]),
 
 		{Direction2, U} = case DistSq > CombinedRadiusSq of
 			true ->
@@ -308,14 +293,14 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 				WLengthSq = rvo2_match:absSq(W),
 				DotProduct1 = rvo2_vector2:mult(W, RelativePosition),
 
-				lager:info("id ~w DotProduct1 ~w rvo2_match:sqr(DotProduct1) ~w CombinedRadiusSq * WLengthSq ~w~n",[Agent#rvo2_agent.id, DotProduct1, rvo2_match:sqr(DotProduct1), CombinedRadiusSq * WLengthSq]),
+				% lager:info("id ~w DotProduct1 ~w rvo2_match:sqr(DotProduct1) ~w CombinedRadiusSq * WLengthSq ~w~n",[Agent#rvo2_agent.id, DotProduct1, rvo2_match:sqr(DotProduct1), CombinedRadiusSq * WLengthSq]),
 
 				case DotProduct1 < 0.0 andalso rvo2_match:sqr(DotProduct1) > CombinedRadiusSq * WLengthSq of
 					true ->
 						%% Project on cut-off circle
 						WLength = rvo2_match:sqrt(WLengthSq),
 						UnitW 	= rvo2_vector2:divide(W, WLength),
-						lager:info("Direction ~w ~n",[rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x)]), 
+						% lager:info("Direction ~w ~n",[rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x)]), 
 						{rvo2_vector2:init(UnitW#rvo2_vector.y, -UnitW#rvo2_vector.x), rvo2_vector2:mult(CombinedRadius * InvTimeHorizon2 - WLength, UnitW)};
 					false ->
 						Leg = rvo2_match:sqrt(DistSq - CombinedRadiusSq),
@@ -327,7 +312,6 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 								%% Project on right leg. 
 								rvo2_vector2:divide(rvo2_vector2:negative(rvo2_vector2:init(RelativePosition#rvo2_vector.x * Leg + RelativePosition#rvo2_vector.y * CombinedRadius, -RelativePosition#rvo2_vector.x * CombinedRadius + RelativePosition#rvo2_vector.y * Leg)), DistSq)
 						end,
-						lager:info("Direction ~w ~n",[Direction]),
 						{Direction, rvo2_vector2:sub(rvo2_vector2:mult(rvo2_vector2:mult(RelativeVelocity, Direction), Direction), RelativeVelocity)}
 				end;
 			false ->
@@ -341,13 +325,13 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 				
 				WLength = rvo2_match:abs(W),
 
-				lager:info(" id ~w  RelativeVelocity ~w InvTimeStep ~w  RelativePosition ~w w ~w WLength ~w~n",[Agent#rvo2_agent.id, RelativeVelocity, InvTimeStep, RelativePosition, W, WLength]),
+				% lager:info(" id ~w  RelativeVelocity ~w InvTimeStep ~w  RelativePosition ~w w ~w WLength ~w~n",[Agent#rvo2_agent.id, RelativeVelocity, InvTimeStep, RelativePosition, W, WLength]),
 				
 				UnitW 	= rvo2_vector2:divide(W, WLength),
 
 				Direction = rvo2_vector2:init(UnitW#rvo2_vector.y , - UnitW#rvo2_vector.x),
 
-				lager:info("Direction ~w ~n",[Direction]),
+				% lager:info("Direction ~w ~n",[Direction]),
 
 				{Direction, rvo2_vector2:mult(CombinedRadius * InvTimeStep - WLength, UnitW)}
 		end,
@@ -356,18 +340,18 @@ computeNewVelocity(TimeStep, Obstacles, Agent = #rvo2_agent{agentNeighbors = Age
 	end,
 	OrcaLines3 = lists:foldl(FF, OrcaLines2, AgentNeighbors),
 
-	lager:info("OrcaLines3 ~w MaxSpeed ~w PrefVelocity ~w NewVelocity ~w~n",[OrcaLines3, MaxSpeed, PrefVelocity, NewVelocity]),
+	% lager:info("OrcaLines3 ~w MaxSpeed ~w PrefVelocity ~w NewVelocity ~w~n",[OrcaLines3, MaxSpeed, PrefVelocity, NewVelocity]),
 
 	{LineFail, Result} = linearProgram2(OrcaLines3, MaxSpeed, PrefVelocity, false, NewVelocity),
 		
-	lager:info("id = ~w LineFail ~w, NewVelocity ~w ~n",[Agent#rvo2_agent.id, LineFail, Result]),
+	% lager:info("id = ~w LineFail ~w, NewVelocity ~w ~n",[Agent#rvo2_agent.id, LineFail, Result]),
 
 	NewVelocity2 = case LineFail =< length(OrcaLines3) of
 		true ->
-			lager:info("========= ~w ~n",[Agent#rvo2_agent.id]),
+			% lager:info("========= ~w ~n",[Agent#rvo2_agent.id]),
 			linearProgram3(OrcaLines3, Len, LineFail, MaxSpeed, Result);
 		false ->
-			lager:info("====ddd===== ~w ~w ~n",[Agent#rvo2_agent.id, Result]),
+			% lager:info("====ddd===== ~w ~w ~n",[Agent#rvo2_agent.id, Result]),
 			Result
 	end,
 	Agent#rvo2_agent{newVelocity = NewVelocity2, orcaLines = OrcaLines3}.
@@ -477,15 +461,11 @@ linearProgram2(Lines, Radius, OptVelocity, DirectionOpt, _Result) ->
 			OptVelocity
 	end,
 	
-	lager:info("Result2 ~w~n",[Result2]),
-
 	{Count, Result3} = do_linearProgram2(lists:seq(1, length(Lines)), Lines, Radius, OptVelocity, DirectionOpt, Result2),
-
-	lager:info("Count ~w ~w ~n",[Count, Result3]),
 
 	case Count of
 		false ->
-			{length(Lines), Result3};
+			{length(Lines) + 1, Result3};
 		_ ->
 			{Count, Result3}
 	end.
@@ -500,7 +480,7 @@ do_linearProgram2([H | T], Lines, Radius, OptVelocity, DirectionOpt, Result) ->
 			{Tag, Result2} = linearProgram1(Lines, H, Radius, OptVelocity, DirectionOpt, Result),
 			case not Tag of
 				true ->
-					lager:info("Line ~w ~n",[Line]),
+					% lager:info("Line ~w ~n",[Line]),
 					{H, Result};
 				false ->
 					do_linearProgram2(T, Lines, Radius, OptVelocity, DirectionOpt, Result2)
@@ -541,6 +521,7 @@ linearProgram3(Lines, NumObstLines, BeginLine, Radius, Result) ->
 
 				AddProjLines = lists:foldl(FF, [], lists:seq(NumObstLines + 1, I)),
 				ProjLines2 = ProjLines ++ lists:reverse(AddProjLines),
+				% lager:info(" new vector2 ~w~n",[rvo2_vector2:init(-DirectionI#rvo2_vector.y, DirectionI#rvo2_vector.x)]),
 				case linearProgram2(ProjLines2, Radius, rvo2_vector2:init(-DirectionI#rvo2_vector.y, DirectionI#rvo2_vector.x), true, Result2) of
 					{Count, _Result3} when Count < length(ProjLines2) ->
 						{rvo2_match:det(DirectionI, rvo2_vector2:sub(PointI, Result2)), Result2};

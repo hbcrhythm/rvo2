@@ -12,43 +12,34 @@ config(Start, End, Worker) ->
 	Worker#rvo2_worker{start_ = Start, end_ = End}.
 
 step(Simulator = #rvo2_simulator{agents = Agents, timeStep = TimeStep}, #rvo2_worker{start_ = Start, end_ = End}) ->
-	% lager:info("Agents ~w ~w ~w ~n",[Agents, Start, End]),
 	Agents2 = lists:sublist(Agents, Start, End - Start),
 
-	F = fun F([Agent = #rvo2_agent{id = Id} | T], Simulator2 = #rvo2_simulator{agents = Agents3, obstacles = Obstacles}) ->
-				% lager:info("id ~w ================= computeNeighbors ~w ~n",[Id, Agent]),
-
+	F = fun F([Agent = #rvo2_agent{id = Id} | T], NewAgents, Simulator2 = #rvo2_simulator{agents = Agents3, obstacles = Obstacles}) ->
+				
 			 	Agent2 = rvo2_agent:computeNeighbors(Simulator, Agent),
-
-			 	lager:info("computeNewVelocity ~w~n",[Agent2]),
-
+				
 			 	Agent3 = rvo2_agent:computeNewVelocity(TimeStep, Obstacles, Agent2),
-
-			 	lager:info("id ~w ================ computeNewVelocity Agent3 ~w~n",[Id, Agent3]),
 
 			 	Agents4 = lists:keyreplace(Id, #rvo2_agent.id, Agents3, Agent3),
 
-			 	F(T, Simulator2#rvo2_simulator{agents = Agents4});
-			F([], Simulator2) ->
-				Simulator2
+			 	F(T, [Agent3 | NewAgents], Simulator2#rvo2_simulator{agents = Agents4});
+			F([], NewAgents, _Simulator2) ->
+				NewAgents
 	end,
-	F(Agents2, Simulator).
+	F(Agents2, [], Simulator).
 
 update(Simulator = #rvo2_simulator{agents = Agents}, #rvo2_worker{start_ = Start, end_ = End}) ->
-	
 	Agents2 = lists:sublist(Agents, Start, End - Start),
 
-	F = fun F([Agent = #rvo2_agent{id = Id} | T], Simulator2 = #rvo2_simulator{agents = Agents3}) ->
+	F = fun F([Agent = #rvo2_agent{id = Id} | T], NewAgents, Simulator2 = #rvo2_simulator{agents = Agents3}) ->
 		
 			 	Agent2 = rvo2_agent:update(Simulator, Agent),
 
 			 	Agents4 = lists:keyreplace(Id, #rvo2_agent.id, Agents3, Agent2),
 			 	
-			 	% lager:info(" update Agent2 ~w ~n ==== ~w~n",[Agent2, Agents4]),
-
-			 	F(T, Simulator2#rvo2_simulator{agents = Agents4});
-			F([], Simulator2) ->
-				Simulator2
+			 	F(T, [Agent2 | NewAgents], Simulator2#rvo2_simulator{agents = Agents4});
+			F([], NewAgents, _Simulator2) ->
+				NewAgents
 	end,
 
-	F(Agents2, Simulator).
+	F(Agents2, [], Simulator).

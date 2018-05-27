@@ -9,9 +9,6 @@
 init(X, Y) ->
 	#rvo2_vector{x = X, y = Y}.
 
-% dot(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
-% 	#rvo2_vector{x = AX * BX, y = AY * BY}.
-
 mult(#rvo2_vector{x = AX, y = AY}, #rvo2_vector{x = BX, y = BY}) ->
 	AX * BX + AY * BY;
 mult(Scalar, Vector2 = #rvo2_vector{}) ->
